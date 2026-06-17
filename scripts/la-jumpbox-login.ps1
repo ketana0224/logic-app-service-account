@@ -6,7 +6,7 @@
   - Az.Accounts モジュールが無ければ CurrentUser スコープで自動インストール
   - Connect-AzAccount で対話ログイン（ブラウザが開かない場合は -UseDeviceAuthentication にフォールバック）
   - 既に同じテナント / サブスクリプションに接続済みならスキップ
-  - 完了後、Logic App `la-dir-m365-connector` への RBAC を表示
+  - 完了後、Logic App への RBAC を表示
 
 .EXAMPLE
   pwsh -File C:\scripts\la-jumpbox-login.ps1
@@ -22,10 +22,10 @@
 
 [CmdletBinding()]
 param(
-    [string]$TenantId       = "1bb18e3f-cba0-449a-a37e-ae2a464d10c5",
-    [string]$SubscriptionId = "571e49d7-d4d6-4cb5-884f-2e14bfaa662c",
-    [string]$ResourceGroup  = "rg-dir",
-    [string]$SiteName       = "la-dir-m365-connector",
+    [string]$TenantId       = $(if ($env:AZURE_TENANT_ID)      { $env:AZURE_TENANT_ID }      else { "<azure-tenant-id>" }),
+    [string]$SubscriptionId = $(if ($env:AZURE_SUBSCRIPTION_ID) { $env:AZURE_SUBSCRIPTION_ID } else { "<azure-subscription-id>" }),
+    [string]$ResourceGroup  = $(if ($env:AZURE_RESOURCE_GROUP)  { $env:AZURE_RESOURCE_GROUP }  else { "<resource-group>" }),
+    [string]$SiteName       = $(if ($env:LOGIC_APP_NAME)        { $env:LOGIC_APP_NAME }        else { "<logic-app-name>" }),
     [switch]$Force
 )
 

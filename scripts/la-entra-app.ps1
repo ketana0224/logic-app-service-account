@@ -1,7 +1,9 @@
 $ErrorActionPreference = "Stop"
-$appName = "app-system-notify-broker"
-$redirectUri = "http://localhost:8400/callback"
-$tenantId = "655bd66a-5001-4cb3-9aad-ce54a27d5d95"
+$appName = if ($env:ENTRA_APP_NAME)     { $env:ENTRA_APP_NAME }     else { "app-system-notify-broker" }
+$redirectUri = if ($env:OAUTH_REDIRECT_URI) { $env:OAUTH_REDIRECT_URI } else { "http://localhost:8400/callback" }
+$tenantId = if ($env:M365_TENANT_ID) { $env:M365_TENANT_ID } else { "<m365-tenant-id>" }
+$resourceGroup = if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP } else { "<resource-group>" }
+$logicAppName  = if ($env:LOGIC_APP_NAME)       { $env:LOGIC_APP_NAME }       else { "<logic-app-name>" }
 
 # Microsoft Graph delegated permission IDs (公式定数)
 $graphAppId = "00000003-0000-0000-c000-000000000000"
@@ -62,7 +64,7 @@ az ad app permission admin-consent --id $appId
 Write-Host "admin-consent 投入完了 (反映に数十秒かかる場合あり)" -ForegroundColor Green
 
 Write-Host "`n=== 5) Logic App に App ID と Tenant ID を App Setting で登録 ===" -ForegroundColor Cyan
-az functionapp config appsettings set -g rg-dir -n la-dir-m365-connector --settings `
+az functionapp config appsettings set -g $resourceGroup -n $logicAppName --settings `
   "ENTRA_TENANT_ID=$tenantId" `
   "ENTRA_CLIENT_ID=$appId" `
   "OAUTH_REDIRECT_URI=$redirectUri" `

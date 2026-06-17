@@ -3,7 +3,7 @@
   踏み台 VM (vm-jump-dir) 上で Service Account 方式 (EVL-04-TeamsChatSend) を再テストする。
 
 .DESCRIPTION
-  Logic App `la-dir-m365-connector` は publicNetworkAccess=Disabled のため、
+  Logic App は publicNetworkAccess=Disabled のため、
   本スクリプトは VNet 内 (snet-jumpbox) からのみ動作する。
 
   処理フロー:
@@ -18,7 +18,7 @@
   EVL-02-SendMail / EVL-99-TokenHealthCheck 等にも切替可。
 
 .PARAMETER UserAObjectId
-  1:1 チャットの A 側ユーザーの Entra Object ID (M365CPI65139919 テナント)。
+  1:1 チャットの A 側ユーザーの Entra Object ID (M365 テナント)。
 
 .PARAMETER UserBObjectId
   1:1 チャットの B 側ユーザーの Entra Object ID。
@@ -36,20 +36,20 @@
 .NOTES
   前提:
     - 踏み台 VM に Azure CLI (az) と PowerShell 7 (pwsh) がインストール済み
-    - az login 済み (subscription = 571e49d7-d4d6-4cb5-884f-2e14bfaa662c にアクセスできる Entra アカウント)
-    - 実行アカウントが Logic App `la-dir-m365-connector` に対して以下いずれかの RBAC を持つ
+    - az login 済み (subscription = <azure-subscription-id> にアクセスできる Entra アカウント)
+    - 実行アカウントが Logic App に対して以下いずれかの RBAC を持つ
         * Logic App Standard Contributor (推奨)
         * Contributor / Owner
 #>
 
 [CmdletBinding()]
 param(
-    [string]$SubscriptionId  = "571e49d7-d4d6-4cb5-884f-2e14bfaa662c",
-    [string]$ResourceGroup   = "rg-dir",
-    [string]$SiteName        = "la-dir-m365-connector",
+    [string]$SubscriptionId  = $(if ($env:AZURE_SUBSCRIPTION_ID) { $env:AZURE_SUBSCRIPTION_ID } else { "<azure-subscription-id>" }),
+    [string]$ResourceGroup   = $(if ($env:AZURE_RESOURCE_GROUP)  { $env:AZURE_RESOURCE_GROUP }  else { "<resource-group>" }),
+    [string]$SiteName        = $(if ($env:LOGIC_APP_NAME)        { $env:LOGIC_APP_NAME }        else { "<logic-app-name>" }),
     [string]$WorkflowName    = "EVL-04-TeamsChatSend",
-    [string]$UserAObjectId   = "f502368d-c444-4a9e-b217-d1a1f8e441f6",   # AdilE
-    [string]$UserBObjectId   = "c52ed26f-8811-4d7e-95d7-dd65b8c8dbc1",   # AmberR
+    [string]$UserAObjectId   = $(if ($env:USER_A_OBJECT_ID)     { $env:USER_A_OBJECT_ID }     else { "<user-a-object-id>" }),
+    [string]$UserBObjectId   = $(if ($env:USER_B_OBJECT_ID)     { $env:USER_B_OBJECT_ID }     else { "<user-b-object-id>" }),
     [string]$MessageContent  = "[再テスト] EVL-04 Service Account Teams 1:1 送信  $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss K')"
 )
 

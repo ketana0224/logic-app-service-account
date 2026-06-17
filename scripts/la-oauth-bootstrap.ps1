@@ -15,7 +15,7 @@ This script:
 IMPORTANT: Service Account MUST have permanent password set (TAP is FORBIDDEN)
 
 .PARAMETER TenantId
-Microsoft 365 tenant ID (M365CPI65139919)
+Microsoft 365 tenant ID
 
 .PARAMETER ClientId
 Entra App Registration client ID
@@ -27,7 +27,7 @@ Key Vault resource name to store refresh_token
 Service Account UPN (system-notify@...)
 
 .EXAMPLE
-pwsh ./la-oauth-bootstrap.ps1 -TenantId "655bd66a-..." -ClientId "d53202ed-..." -KeyVaultName "kv-dirm365-3647"
+pwsh ./la-oauth-bootstrap.ps1 -TenantId "<m365-tenant-id>" -ClientId "<entra-app-client-id>" -KeyVaultName "<key-vault-name>"
 
 #>
 
@@ -39,10 +39,10 @@ param(
     [string]$ClientId = $env:ENTRA_APP_CLIENT_ID,
     
     [Parameter(Mandatory=$false)]
-    [string]$KeyVaultName = "kv-dirm365-3647",
+    [string]$KeyVaultName = $(if ($env:KEY_VAULT_NAME) { $env:KEY_VAULT_NAME } else { "<key-vault-name>" }),
     
     [Parameter(Mandatory=$false)]
-    [string]$ServiceAccountUPN = "system-notify@M365CPI65139919.onmicrosoft.com"
+    [string]$ServiceAccountUPN = $(if ($env:SERVICE_ACCOUNT_UPN) { $env:SERVICE_ACCOUNT_UPN } else { "<service-account-upn>" })
 )
 
 # Configuration

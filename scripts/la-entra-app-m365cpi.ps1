@@ -1,17 +1,18 @@
 $ErrorActionPreference = "Stop"
 
-# G4' Phase 1d (修正版): Entra App を M365CPI65139919 テナントに作成し、
-# Logic App (MngEnvMCAP037978 サブスクリプション) の App Settings に値を登録する。
+# G4' Phase 1d (修正版): Entra App を M365 テナントに作成し、
+# Logic App (Azure サブスクリプション) の App Settings に値を登録する。
+# 機密値はすべて環境変数で上書き可能。未設定時はプレースホルダのため実行前に設定すること。
 
-$appName     = "app-system-notify-broker"
-$redirectUri = "http://localhost:8400/callback"
+$appName     = if ($env:ENTRA_APP_NAME)     { $env:ENTRA_APP_NAME }     else { "app-system-notify-broker" }
+$redirectUri = if ($env:OAUTH_REDIRECT_URI) { $env:OAUTH_REDIRECT_URI } else { "http://localhost:8400/callback" }
 
-# 2 テナントの subscription/tenant 識別子
-$m365cpiTenantId   = "655bd66a-5001-4cb3-9aad-ce54a27d5d95"
-$m365cpiSubName    = "ME-M365CPI65139919-ketana-1"   # App 作成用に context として使う
-$azureSubId        = "571e49d7-d4d6-4cb5-884f-2e14bfaa662c"  # Logic App 側
-$azureRg           = "rg-dir"
-$azureLogicApp     = "la-dir-m365-connector"
+# 2 テナントの subscription/tenant 識別子（環境変数で上書き可）
+$m365cpiTenantId   = if ($env:M365_TENANT_ID)         { $env:M365_TENANT_ID }         else { "<m365-tenant-id>" }
+$m365cpiSubName    = if ($env:M365_SUBSCRIPTION_NAME) { $env:M365_SUBSCRIPTION_NAME } else { "<m365-subscription-name>" }  # App 作成用に context として使う
+$azureSubId        = if ($env:AZURE_SUBSCRIPTION_ID)  { $env:AZURE_SUBSCRIPTION_ID }  else { "<azure-subscription-id>" }  # Logic App 側
+$azureRg           = if ($env:AZURE_RESOURCE_GROUP)   { $env:AZURE_RESOURCE_GROUP }   else { "<resource-group>" }
+$azureLogicApp     = if ($env:LOGIC_APP_NAME)         { $env:LOGIC_APP_NAME }         else { "<logic-app-name>" }
 
 # Microsoft Graph delegated permission IDs (公式定数)
 $graphAppId         = "00000003-0000-0000-c000-000000000000"
@@ -21,7 +22,7 @@ $permChatReadWrite  = "9ff7295e-131b-4d94-90e1-69fde507ac11"  # Chat.ReadWrite
 $permChatMsgSend    = "116b7235-7cc6-461e-b163-8e55691d839e"  # ChatMessage.Send
 
 # ==== Step 0: 現在の context を退避し、M365CPI に切替 ====
-Write-Host "=== 0) M365CPI65139919 context に切替 ===" -ForegroundColor Cyan
+Write-Host "=== 0) M365 テナント context に切替 ===" -ForegroundColor Cyan
 $origSub = az account show --query id -o tsv
 Write-Host "  退避: origSub=$origSub" -ForegroundColor Gray
 az account set --subscription $m365cpiSubName | Out-Null
@@ -91,8 +92,8 @@ try {
   $script:newAppId = $appId
 }
 finally {
-  # ==== Step 5: MngEnvMCAP037978 (Azure 側) に切戻 ====
-  Write-Host "`n=== 5) MngEnvMCAP037978 context に切戻 ===" -ForegroundColor Cyan
+  # ==== Step 5: Azure 側サブスクリプションに切戻 ====
+  Write-Host "`n=== 5) Azure サブスクリプション context に切戻 ===" -ForegroundColor Cyan
   az account set --subscription $azureSubId | Out-Null
   $back = az account show --query "{tenantId:tenantId, user:user.name, sub:name}" -o jsonc | ConvertFrom-Json
   Write-Host "  切戻後: tenant=$($back.tenantId) user=$($back.user) sub=$($back.sub)" -ForegroundColor Green
@@ -111,7 +112,7 @@ Write-Host "  App Settings 設定完了" -ForegroundColor Green
 Write-Host "`n=== 結果サマリ ===" -ForegroundColor Cyan
 Write-Host "App name      : $appName"                          -ForegroundColor Green
 Write-Host "App ID (new)  : $($script:newAppId)"               -ForegroundColor Green
-Write-Host "Tenant        : $m365cpiTenantId (M365CPI65139919)" -ForegroundColor Green
+Write-Host "Tenant        : $m365cpiTenantId" -ForegroundColor Green
 Write-Host "Redirect      : $redirectUri"                      -ForegroundColor Green
 Write-Host "Scopes        : User.Read, offline_access, Chat.ReadWrite, ChatMessage.Send" -ForegroundColor Green
 Write-Host "Logic App     : $azureLogicApp (rg=$azureRg, sub=$azureSubId)" -ForegroundColor Green

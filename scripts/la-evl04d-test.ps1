@@ -39,11 +39,11 @@
 
 [CmdletBinding()]
 param(
-    [string]$SubscriptionId       = "571e49d7-d4d6-4cb5-884f-2e14bfaa662c",
-    [string]$ResourceGroup        = "rg-dir",
-    [string]$SiteName             = "la-dir-m365-connector",
+    [string]$SubscriptionId       = $(if ($env:AZURE_SUBSCRIPTION_ID)   { $env:AZURE_SUBSCRIPTION_ID }   else { "<azure-subscription-id>" }),
+    [string]$ResourceGroup        = $(if ($env:AZURE_RESOURCE_GROUP)    { $env:AZURE_RESOURCE_GROUP }    else { "<resource-group>" }),
+    [string]$SiteName             = $(if ($env:LOGIC_APP_NAME)          { $env:LOGIC_APP_NAME }          else { "<logic-app-name>" }),
     [string]$WorkflowName         = "EVL-04d-TeamsNotify",
-    [string]$RecipientAadObjectId = "c52ed26f-8811-4d7e-95d7-dd65b8c8dbc1",  # AmberR
+    [string]$RecipientAadObjectId = $(if ($env:RECIPIENT_AAD_OBJECT_ID) { $env:RECIPIENT_AAD_OBJECT_ID } else { "<recipient-object-id>" }),
     [string]$Title                = "[定期テスト] EVL-04d Service Account 動作確認",
     [string]$Message              = $null
 )

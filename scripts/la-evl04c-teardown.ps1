@@ -1,6 +1,6 @@
 # EVL-04c teardown スクリプト (G4' 完成後の不要リソース削除)
 #
-# 対象: rg-dir に残っている evl04c-* リソース 6 件
+# 対象: リソースグループに残っている evl04c-* リソース 6 件
 #
 # 削除順序 (依存関係考慮):
 #   1. Bot Service              (Function App messaging endpoint 参照を切る)
@@ -20,8 +20,9 @@ param(
   [Parameter(Mandatory = $false)]
   [switch]$Confirm,
 
-  [string]$SubscriptionId    = "571e49d7-d4d6-4cb5-884f-2e14bfaa662c",
-  [string]$ResourceGroupName = "rg-dir"
+  [string]$SubscriptionId    = $(if ($env:AZURE_SUBSCRIPTION_ID) { $env:AZURE_SUBSCRIPTION_ID } else { "<azure-subscription-id>" }),
+  [string]$ResourceGroupName = $(if ($env:AZURE_RESOURCE_GROUP)  { $env:AZURE_RESOURCE_GROUP }  else { "<resource-group>" }),
+  [string]$SiteName          = $(if ($env:LOGIC_APP_NAME)        { $env:LOGIC_APP_NAME }        else { "<logic-app-name>" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,8 +48,8 @@ $resources | Format-Table name, type -AutoSize
 
 Write-Host ""
 Write-Host "=== G4' (EVL-04d) sanity check ===" -ForegroundColor Cyan
-$la = az functionapp show -g $ResourceGroupName -n la-dir-m365-connector --query "{state:state, publicNetworkAccess:publicNetworkAccess}" -o jsonc | ConvertFrom-Json
-Write-Host "  Logic App la-dir-m365-connector: state=$($la.state)  publicNetworkAccess=$($la.publicNetworkAccess)"
+$la = az functionapp show -g $ResourceGroupName -n $SiteName --query "{state:state, publicNetworkAccess:publicNetworkAccess}" -o jsonc | ConvertFrom-Json
+Write-Host "  Logic App $SiteName: state=$($la.state)  publicNetworkAccess=$($la.publicNetworkAccess)"
 if ($la.state -ne "Running") {
   Write-Host "  [ABORT] Logic App が Running ではありません。teardown は実行しません。" -ForegroundColor Red
   return

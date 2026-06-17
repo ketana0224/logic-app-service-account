@@ -249,6 +249,8 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
               }
             ]
             targetFqdns: [
+              // OAuth トークン エンドポイント。Firewall ルールには実 FQDN が必須のため environment() ではなくハードコードする
+              #disable-next-line no-hardcoded-env-urls
               'login.microsoftonline.com'
             ]
           }

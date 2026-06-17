@@ -26,7 +26,7 @@ Virtual Machine name
 VM size (default: Standard_D2s_v5)
 
 .EXAMPLE
-pwsh ./la-jumpbox-create.ps1 -ResourceGroupName "rg-dir" -VnetName "vnet-dir" -VmName "vm-jump-dir"
+pwsh ./la-jumpbox-create.ps1 -ResourceGroupName "<resource-group>" -VnetName "<vnet-name>" -VmName "<vm-name>"
 
 #>
 
