@@ -23,18 +23,21 @@ az login
 az account set --subscription "YOUR-SUBSCRIPTION-ID"
 
 # 環境変数を設定 (.env ファイルまたはシェル環境)
-$env:AZURE_SUBSCRIPTION_ID = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-$env:AZURE_TENANT_ID = "12576a9a-01ad-45f5-8f87-2c65c864d1e1"  # Azure tenant
-$env:M365_TENANT_ID = "655bd66a-5001-4cb3-9aad-ce54a27d5d95"   # Microsoft 365 tenant
-$env:SERVICE_ACCOUNT_UPN = "system-notify@M365CPI65139919.onmicrosoft.com"
-$env:ENTRA_APP_CLIENT_ID = "d53202ed-f6ba-4ba3-9834-2774d316f653"
-$env:RESOURCE_GROUP_NAME = "rg-dir"
-$env:LOCATION = "westus2"
+$env:AZURE_SUBSCRIPTION_ID = "<AZURE_SUBSCRIPTION_ID>"
+$env:AZURE_TENANT_ID = "<AZURE_TENANT_ID>"   # Azure tenant
+$env:M365_TENANT_ID = "<M365_TENANT_ID>"     # Microsoft 365 tenant
+$env:SERVICE_ACCOUNT_UPN = "<service-account>@<your-m365-tenant>.onmicrosoft.com"
+$env:RESOURCE_GROUP_NAME = "<RESOURCE_GROUP_NAME>"
+$env:LOCATION = "<LOCATION>"            # 例: eastus2 (米国東部 2) / japaneast (東日本) / westus2 (米国西部 2)
+
+# ↓ Phase 2 で App Registration を作成すると発行される値 (Phase 0 ではまだ未確定)
+#   Phase 2 ステップ 3 完了後に設定する。利用は Phase 3 (OAuth bootstrap)。
+# $env:ENTRA_APP_CLIENT_ID = "<ENTRA_APP_CLIENT_ID>"
 ```
 
 ### Phase 1: インフラストラクチャのデプロイ (45 分)
 
-#### Option A: Bicep を使用（推奨）
+クローズドネットワーク基盤一式を Bicep でデプロイする。
 
 ```powershell
 # リポジトリをクローン
@@ -43,6 +46,18 @@ cd logic-app-service-account
 
 # パラメータファイルをカスタマイズ
 # infrastructure/bicep/parameters.prod.bicepparam を編集
+#   - location は Windows WS1 が使えるリージョンを指定 (例: westus2 / japaneast / eastus2)
+#     ※ Linux WS1 は westus2 で利用不可、Windows 一択
+#   - keyVaultName / logicAppName 等のグローバル一意名を必要に応じて変更
+
+# リソースグループを作成 (未作成の場合)
+az group create -n $env:RESOURCE_GROUP_NAME -l $env:LOCATION
+
+# デプロイ前に検証 (what-if)
+az deployment group what-if `
+    -g $env:RESOURCE_GROUP_NAME `
+    --template-file infrastructure/bicep/main.bicep `
+    --parameters infrastructure/bicep/parameters.prod.bicepparam
 
 # デプロイ
 az deployment group create `
@@ -52,24 +67,26 @@ az deployment group create `
     --parameters infrastructure/bicep/parameters.prod.bicepparam
 ```
 
-リソースが作成される (所要時間: 30〜45 分):
-- VNet + Subnets + NSG + UDR
-- Logic App Standard (WS1)
-- Key Vault (Private Endpoint)
-- Storage Account (Private Endpoints)
-- Azure Firewall
-- Private DNS Zones
+作成されるリソース (所要時間: 30〜45 分):
+- VNet + 4 Subnets (snet-logicapp / snet-pep / AzureFirewallSubnet / snet-jumpbox)
+- Route Table `rt-snet-logicapp` (0.0.0.0/0 → Azure Firewall)
+- Public IP + Azure Firewall + Firewall Policy `afwp-dir` (OAuth / Graph 許可ルール)
+- Log Analytics + Application Insights
+- Key Vault (`publicNetworkAccess=Disabled`、RBAC 認可)
+- Storage Account (Logic App host state)
+- App Service Plan (WS1) + Logic App Standard (System-Assigned Managed Identity)
+- 6 Private Endpoints + 6 Private DNS Zones (+ VNet link)
+- RBAC: Logic App SAMI → Key Vault Secrets Officer
 
-#### Option B: ARM テンプレートを使用
-
-```bash
-# ARM template version
-az deployment group create \
-    -n logic-app-deployment \
-    -g $RESOURCE_GROUP_NAME \
-    --template-file infrastructure/arm-templates/deploy.json \
-    --parameters infrastructure/arm-templates/parameters.json
-```
+> **補足**: VNet 統合後に `vnetRouteAllEnabled` を再適用したい場合は
+> [scripts/la-vnetroute.ps1](scripts/la-vnetroute.ps1) を使用する。
+> ARM テンプレート版 (`infrastructure/arm-templates/`) は現時点では未提供。
+> ARM が必要な場合は `az bicep build` で main.bicep から `deploy.json` を生成できる:
+>
+> ```powershell
+> az bicep build --file infrastructure/bicep/main.bicep `
+>     --outfile infrastructure/arm-templates/deploy.json
+> ```
 
 ### Phase 2: Service Account の準備 (5 分)
 
@@ -96,6 +113,7 @@ Microsoft 365 テナント管理者が以下を実施:
    Redirect URI: http://localhost:8400/callback
    
    → Client ID をメモ (bootstrap で使う)
+   → 環境変数に設定: $env:ENTRA_APP_CLIENT_ID = "<発行された Client ID>"
    ```
 
 4. **Delegated 権限を付与**
@@ -125,7 +143,7 @@ Microsoft 365 テナント管理者が以下を実施:
 Key Vault を一時的に開放:
 
 ```powershell
-$kvName = "kv-dirm365-3647"  # 実際の名称に置き換え
+$kvName = "<KEY_VAULT_NAME>"  # 実際の名称に置き換え
 
 # Public access を enabled (実行者 PC からのアクセスのみ許可推奨)
 az keyvault update -n $kvName -g $env:RESOURCE_GROUP_NAME `
@@ -148,9 +166,9 @@ pwsh ./scripts/la-oauth-bootstrap.ps1 `
 
 成功時:
 ```
-Service Account: system-notify@M365CPI65139919.onmicrosoft.com
-Object ID: 71969869-a842-433a-96b9-c5ca4434ee08
-refresh_token stored in: kv-dirm365-3647/m365-system-notify-refresh-token
+Service Account: <service-account>@<your-m365-tenant>.onmicrosoft.com
+Object ID: <SERVICE_ACCOUNT_OBJECT_ID>
+refresh_token stored in: <KEY_VAULT_NAME>/m365-system-notify-refresh-token
 
 Results saved to bootstrap-results.json
 ```
@@ -176,7 +194,7 @@ pwsh ./deploy.ps1
 出力:
 ```
 ✓ Workflow deployed: EVL-04d-TeamsNotify
-Callback URL: https://la-dir-m365-connector.azurewebsites.net/api/Team...
+Callback URL: https://<LOGIC_APP_NAME>.azurewebsites.net/api/Team...
 callback-url.txt に保存済み
 ```
 
@@ -220,12 +238,12 @@ run-id: 08584203709072358571743386284CU00
 ```powershell
 # Logic App を確認
 az resource show \
-    --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/la-dir-m365-connector" \
+    --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/<LOGIC_APP_NAME>" \
     --query properties.publicNetworkAccess
 
 # Public access を disable
 az resource update \
-    --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/la-dir-m365-connector" \
+    --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/<LOGIC_APP_NAME>" \
     --api-version 2023-12-01 \
     --set properties.publicNetworkAccess=Disabled
 ```
@@ -235,7 +253,7 @@ az resource update \
 ```powershell
 pwsh ./scripts/la-jumpbox-create.ps1 `
     -ResourceGroupName $env:RESOURCE_GROUP_NAME `
-    -VnetName "vnet-dir"
+    -VnetName "<VNET_NAME>"
 ```
 
 ### Phase 8: 本番運用開始
@@ -249,11 +267,11 @@ pwsh ./scripts/la-jumpbox-create.ps1 `
 ```json
 {
   "timestamp": "2026-06-12T03:42:10Z",
-  "userPrincipalName": "system-notify@M365CPI65139919.onmicrosoft.com",
-  "objectId": "71969869-a842-433a-96b9-c5ca4434ee08",
-  "tenantId": "655bd66a-5001-4cb3-9aad-ce54a27d5d95",
-  "clientId": "d53202ed-f6ba-4ba3-9834-2774d316f653",
-  "keyVaultName": "kv-dirm365-3647",
+  "userPrincipalName": "<service-account>@<your-m365-tenant>.onmicrosoft.com",
+  "objectId": "<SERVICE_ACCOUNT_OBJECT_ID>",
+  "tenantId": "<M365_TENANT_ID>",
+  "clientId": "<ENTRA_APP_CLIENT_ID>",
+  "keyVaultName": "<KEY_VAULT_NAME>",
   "refreshTokenSecretName": "m365-system-notify-refresh-token"
 }
 ```
@@ -285,7 +303,7 @@ pwsh ./check-run.ps1 -RunId "<runId>"
 # 2. 詳細ログを確認
 az logicapp workflow show-run \
     -g $env:RESOURCE_GROUP_NAME \
-    -n la-dir-m365-connector \
+    -n <LOGIC_APP_NAME> \
     -r EVL-04d-TeamsNotify \
     --run-name <runId>
 ```
