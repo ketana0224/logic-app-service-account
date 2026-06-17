@@ -1,0 +1,336 @@
+# Quick Start Guide
+
+## 前提条件チェックリスト
+
+- [ ] Azure subscription (Enterprise / Dev / Test 可)
+- [ ] Microsoft 365 テナント (Teams ライセンス付き)
+- [ ] Azure CLI (`az --version`)
+- [ ] PowerShell 7.0+ (`pwsh --version`)
+- [ ] Git
+- [ ] ローカル PC: Windows / macOS / Linux
+
+## セットアップステップ (所要時間: 約 2 時間)
+
+### Phase 0: 環境変数の設定 (5 分)
+
+Azure CLI で対象 subscription に認証
+
+```powershell
+# Azure にログイン
+az login
+
+# subscription を選択
+az account set --subscription "YOUR-SUBSCRIPTION-ID"
+
+# 環境変数を設定 (.env ファイルまたはシェル環境)
+$env:AZURE_SUBSCRIPTION_ID = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+$env:AZURE_TENANT_ID = "12576a9a-01ad-45f5-8f87-2c65c864d1e1"  # Azure tenant
+$env:M365_TENANT_ID = "655bd66a-5001-4cb3-9aad-ce54a27d5d95"   # Microsoft 365 tenant
+$env:SERVICE_ACCOUNT_UPN = "system-notify@M365CPI65139919.onmicrosoft.com"
+$env:ENTRA_APP_CLIENT_ID = "d53202ed-f6ba-4ba3-9834-2774d316f653"
+$env:RESOURCE_GROUP_NAME = "rg-dir"
+$env:LOCATION = "westus2"
+```
+
+### Phase 1: インフラストラクチャのデプロイ (45 分)
+
+#### Option A: Bicep を使用（推奨）
+
+```powershell
+# リポジトリをクローン
+git clone https://github.com/YOUR-ORG/logic-app-service-account.git
+cd logic-app-service-account
+
+# パラメータファイルをカスタマイズ
+# infrastructure/bicep/parameters.prod.bicepparam を編集
+
+# デプロイ
+az deployment group create `
+    -n logic-app-deployment-$(Get-Date -Format 'yyyyMMddHHmmss') `
+    -g $env:RESOURCE_GROUP_NAME `
+    --template-file infrastructure/bicep/main.bicep `
+    --parameters infrastructure/bicep/parameters.prod.bicepparam
+```
+
+リソースが作成される (所要時間: 30〜45 分):
+- VNet + Subnets + NSG + UDR
+- Logic App Standard (WS1)
+- Key Vault (Private Endpoint)
+- Storage Account (Private Endpoints)
+- Azure Firewall
+- Private DNS Zones
+
+#### Option B: ARM テンプレートを使用
+
+```bash
+# ARM template version
+az deployment group create \
+    -n logic-app-deployment \
+    -g $RESOURCE_GROUP_NAME \
+    --template-file infrastructure/arm-templates/deploy.json \
+    --parameters infrastructure/arm-templates/parameters.json
+```
+
+### Phase 2: Service Account の準備 (5 分)
+
+Microsoft 365 テナント管理者が以下を実施:
+
+1. **Service Account ユーザーを作成**
+   - UPN: `system-notify@<your-m365-tenant>.onmicrosoft.com`
+   - ユーザータイプ: **標準ユーザー** (Shared Mailbox ❌)
+   - ライセンス: **Microsoft 365 E3/E5 (Teams 含む)**
+
+2. **恒久パスワードを設定**
+   ```
+   Azure AD > Users > system-notify
+   → Reset Password (Temporary password ではなく、恒久パスワード)
+   → 「Change password on next sign-in」= OFF
+   → TAP (Temporary Access Pass) ❌ 絶対禁止
+   ```
+
+3. **Entra App Registration を作成 (またはオブジェクト ID を確認)**
+   ```
+   Azure AD > App registrations > New registration
+   Name: Logic App Service Account Auth
+   Account types: Personal Microsoft accounts only (PKCE/public client 用)
+   Redirect URI: http://localhost:8400/callback
+   
+   → Client ID をメモ (bootstrap で使う)
+   ```
+
+4. **Delegated 権限を付与**
+   ```
+   API permissions:
+   - Microsoft Graph → Delegated
+     - User.Read
+     - Chat.ReadWrite
+     - ChatMessage.Send
+     - offline_access
+   
+   → Admin consent を付与
+   ```
+
+5. **(オプション) Conditional Access 除外グループを作成**
+   ```
+   Entra ID > Groups > New group
+   Name: grp-automation-accounts
+   Members: system-notify
+   
+   CA ポリシー > Sign-in Frequency / Risk-based
+   → User exclusions = grp-automation-accounts
+   ```
+
+### Phase 3: OAuth Bootstrap (20 分)
+
+Key Vault を一時的に開放:
+
+```powershell
+$kvName = "kv-dirm365-3647"  # 実際の名称に置き換え
+
+# Public access を enabled (実行者 PC からのアクセスのみ許可推奨)
+az keyvault update -n $kvName -g $env:RESOURCE_GROUP_NAME `
+    --public-network-access Enabled `
+    --default-action Allow `
+    --bypass AzureServices
+```
+
+Bootstrap スクリプト実行:
+
+```powershell
+pwsh ./scripts/la-oauth-bootstrap.ps1 `
+    -TenantId $env:M365_TENANT_ID `
+    -ClientId $env:ENTRA_APP_CLIENT_ID `
+    -KeyVaultName $kvName `
+    -ServiceAccountUPN $env:SERVICE_ACCOUNT_UPN
+```
+
+ブラウザが開く → Service Account でサインイン (恒久パスワード) → Authorization Code 取得 → refresh_token が KV に自動保存
+
+成功時:
+```
+Service Account: system-notify@M365CPI65139919.onmicrosoft.com
+Object ID: 71969869-a842-433a-96b9-c5ca4434ee08
+refresh_token stored in: kv-dirm365-3647/m365-system-notify-refresh-token
+
+Results saved to bootstrap-results.json
+```
+
+Key Vault を完全に閉鎖:
+
+```powershell
+az keyvault update -n $kvName -g $env:RESOURCE_GROUP_NAME `
+    --public-network-access Disabled `
+    --default-action Deny `
+    --bypass AzureServices
+```
+
+### Phase 4: ワークフローのデプロイ (10 分)
+
+EVL-04d (Teams 通知送信):
+
+```powershell
+cd workflows/EVL-04d-TeamsNotify
+pwsh ./deploy.ps1
+```
+
+出力:
+```
+✓ Workflow deployed: EVL-04d-TeamsNotify
+Callback URL: https://la-dir-m365-connector.azurewebsites.net/api/Team...
+callback-url.txt に保存済み
+```
+
+EVL-99 (トークンヘルスチェック):
+
+```powershell
+cd ../EVL-99-TokenHealthCheck
+pwsh ./deploy.ps1
+```
+
+### Phase 5: テスト実行 (15 分)
+
+テストメッセージを送信:
+
+```powershell
+cd workflows/EVL-04d-TeamsNotify
+
+# 特定ユーザーへ
+pwsh ./test.ps1 -Target "Adil"
+
+# 複数ユーザーへ
+pwsh ./test.ps1 -Target "Both"
+```
+
+Teams で通知を確認:
+
+```
+[Logic App Service Account]
+Subject: Teams Notification from Logic App
+
+This is a test message sent via Service Account auth flow.
+----
+Sent: 2026-06-12T03:46:20Z
+run-id: 08584203709072358571743386284CU00
+```
+
+### Phase 6: Logic App の PE 化（セキュリティ強化）(5 分)
+
+現在は Logic App が public access を許可しているため、以下で制限:
+
+```powershell
+# Logic App を確認
+az resource show \
+    --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/la-dir-m365-connector" \
+    --query properties.publicNetworkAccess
+
+# Public access を disable
+az resource update \
+    --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/la-dir-m365-connector" \
+    --api-version 2023-12-01 \
+    --set properties.publicNetworkAccess=Disabled
+```
+
+### Phase 7: 踏み台 VM の作成 (PE テスト用 - オプション）
+
+```powershell
+pwsh ./scripts/la-jumpbox-create.ps1 `
+    -ResourceGroupName $env:RESOURCE_GROUP_NAME `
+    -VnetName "vnet-dir"
+```
+
+### Phase 8: 本番運用開始
+
+これで setup 完了！本番へ。
+
+## よくある質問
+
+### Q1: bootstrap-results.json には何が入ってますか？
+
+```json
+{
+  "timestamp": "2026-06-12T03:42:10Z",
+  "userPrincipalName": "system-notify@M365CPI65139919.onmicrosoft.com",
+  "objectId": "71969869-a842-433a-96b9-c5ca4434ee08",
+  "tenantId": "655bd66a-5001-4cb3-9aad-ce54a27d5d95",
+  "clientId": "d53202ed-f6ba-4ba3-9834-2774d316f653",
+  "keyVaultName": "kv-dirm365-3647",
+  "refreshTokenSecretName": "m365-system-notify-refresh-token"
+}
+```
+
+監査ログ / 管理記録として保存。Secret は含まれません（安全）。
+
+### Q2: refresh_token はどのくらい持つんですか？
+
+- Entra ID 既定: **90 日 (sliding)**
+- EVL-99: **6 時間ごと自動 rotation** で 90 日カウンタをリセット
+- 結果: **ほぼ無期限** (Logic App が動いている限り)
+
+### Q3: パスワード変更したら どうなりますか？
+
+Service Account が自分でパスワード変更: ✅ 影響なし
+
+Admin が reset: ❌ session revoke で refresh_token 失効
+
+→ 再 bootstrap が必要 (Key Vault 開放 → bootstrap → 閉鎖)
+
+### Q4: Teams メッセージが送信されない
+
+確認項目:
+
+```powershell
+# 1. Logic App run をチェック
+pwsh ./check-run.ps1 -RunId "<runId>"
+
+# 2. 詳細ログを確認
+az logicapp workflow show-run \
+    -g $env:RESOURCE_GROUP_NAME \
+    -n la-dir-m365-connector \
+    -r EVL-04d-TeamsNotify \
+    --run-name <runId>
+```
+
+一般的な原因:
+- **Token_Refresh 403**: Service Account が TAP でサインイン → 再 bootstrap
+- **Create_Chat BadRequest**: recipient OID が間違っている
+- **Send_Message 403**: delegated 権限が不足 → admin consent 確認
+
+### Q5: 費用はいくらぐらい？
+
+月額概算 (westus2, Pay-as-you-go):
+
+| コンポーネント | 月額 |
+|---|---:|
+| Logic App Standard WS1 | $235 |
+| Private Endpoints (6) | $44 |
+| その他 (KV, Storage, DNS) | $5 |
+| **合計** | **$284/月** |
+| + Azure Firewall (新規の場合) | +$900-1200/月 |
+
+詳細は [docs/05-Cost-Analysis.md](docs/05-Cost-Analysis.md) を参照。
+
+## トラブルシューティング
+
+問題が発生した場合:
+
+1. [docs/04-Troubleshooting.md](docs/04-Troubleshooting.md) を確認
+2. Logic App run history を確認 (`check-run.ps1`)
+3. Key Vault secret が存在しているか確認
+4. Conditional Access policy が SA をブロックしていないか確認
+
+## 次のステップ
+
+- ✅ インフラ完成
+- ✅ OAuth bootstrap 完了
+- ✅ ワークフロー動作確認済み
+
+以下を検討:
+
+1. **Integration**: callback URL を 業務アプリに統合
+2. **Monitoring**: Application Insights を有効化 → ログ収集
+3. **Automation**: EVL-04c のリソース削除 (Phase 8)
+4. **Scalability**: 複数 SA 対応、multi-tenant 拡張
+
+---
+
+**ドキュメント**: [README.md](../README.md) / [docs/](../docs/)

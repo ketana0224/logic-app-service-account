@@ -1,0 +1,83 @@
+# Secrets and credentials
+*.secret
+*.pem
+*.key
+*.pfx
+
+# Key Vault references
+*keyvault*
+*secrets*
+
+# Local PowerShell files
+*.local.ps1
+local-config.json
+
+# Logic App runtime state
+.localsettings.json
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+test-results.json
+*.log
+
+# Terraform / IaC
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Bicep build outputs
+.bicepparam.cache
+
+# Node modules (if applicable)
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Sensitive environment variables
+.env
+.env.local
+.env.*.local
+
+# Bootstrap outputs
+bootstrap-results.json
+callback-url.txt
+
+# ARM templates generated from Bicep
+arm-templates/*.json
+!arm-templates/README.md
+
+# Private configuration
+parameters.local.bicepparam
+config.local.ps1
+
+# Logs and outputs
+*.log.*
+output/
+build/
+
+# GitHub Actions
+.github/secrets/
+
+# Azure CLI cache
+.azure/
+
+# Backup files
+*.bak
+*.backup
+*~

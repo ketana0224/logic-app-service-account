@@ -1,9 +1,12 @@
 # Logic App + Service Account 方式 (Built-in HTTP)
 
-Microsoft Teams への 1:1 チャット自動通知を、**セキュアで スケーラブル** に実現するアーキテクチャ実装プロジェクト。
+**別テナントの Azure から、Microsoft 365 (Teams) テナントへ 1:1 チャットを作成・通知する**ためのアーキテクチャ実装プロジェクト。
+
+Azure リソースをホストするテナントと、Teams チャットを送る相手が所属する Microsoft 365 テナントが**異なる**構成を主旨としています。Service Account の delegated 権限 + refresh_token rotation により、M365 テナント側に Azure リソースを一切置かずにクロステナントで Teams チャットを自動作成します。
 
 ## 🎯 プロジェクト目標
 
+- ✅ **クロステナント** (Azure ホストテナント ≠ M365/Teams テナント) で Teams 1:1 チャットを作成
 - ✅ **Inbound Public ポート = 0** (Private Endpoint 経由のみ)
 - ✅ **ROPC ゼロ** (パスワード保管なし)
 - ✅ **Protected API 不要** (delegated 権限で実装)
