@@ -153,6 +153,43 @@ notepad scripts/.env.local
 
 詳細は [.env.example](.env.example) を参照。
 
+### ステップ 2.5: Service Account と Entra App Registration の準備
+
+`ENTRA_APP_CLIENT_ID` は自動では入りません。  
+Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Account と Entra App Registration を準備してください。
+
+1. Service Account ユーザーを作成
+  UPN 例: `system-notify@<your-m365-tenant>.onmicrosoft.com`
+
+2. 恒久パスワードを設定
+  `Change password on next sign-in` は OFF
+  TAP (Temporary Access Pass) は使用しない
+
+3. Entra App Registration を作成
+  Azure Portal > Entra ID > App registrations > New registration
+  Name: `Logic App Service Account Auth`
+  Supported account types: `Accounts in this organizational directory only`
+  Redirect URI: `http://localhost:8400/callback`
+
+4. Microsoft Graph の Delegated 権限を追加
+  `User.Read`
+  `Chat.ReadWrite`
+  `ChatMessage.Send`
+  `offline_access`
+
+5. Admin consent を付与
+
+6. 発行された Client ID を `scripts/.env.local` に設定
+
+```powershell
+notepad scripts/.env.local
+```
+
+```text
+ENTRA_APP_CLIENT_ID="<発行された Client ID>"
+SERVICE_ACCOUNT_UPN="system-notify@<your-m365-tenant>.onmicrosoft.com"
+```
+
 ### ステップ 3: リソースグループ作成とインフラストラクチャのデプロイ
 
 ```powershell
