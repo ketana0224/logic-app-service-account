@@ -210,8 +210,11 @@ $jumpboxInfo = if (Test-Path "jumpbox-info.json") {
 $JumpboxVmName = $jumpboxInfo.vmName
 $ResourceGroupName = $jumpboxInfo.resourceGroupName
 
-# 前のコマンド実行が完了するまで待機（念のため）
-Start-Sleep -Seconds 120
+# 前のコマンド実行が完了するまで待機（進捗表示付き）
+for ($i = 1; $i -le 4; $i++) {
+    Write-Host "前のコマンド実行が完了するまで待機... ($i/4)" -ForegroundColor Yellow
+    Start-Sleep -Seconds 30
+}
 
 # Azure Run Command で git / pwsh インストール + リポジトリ clone
 az vm run-command invoke `
