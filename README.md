@@ -205,6 +205,12 @@ SERVICE_ACCOUNT_UPN="system-notify@<your-m365-tenant>.onmicrosoft.com"
 ### ステップ 3: リソースグループ作成とインフラストラクチャのデプロイ
 
 ```powershell
+# Azure にログイン（オプション A で az login 済みの場合はスキップ可）
+az login
+
+# 環境変数をロード（未実施の場合）
+. ./scripts/load-env.ps1
+
 # リソースグループを作成
 az group create -n $env:RESOURCE_GROUP_NAME -l $env:LOCATION
 
