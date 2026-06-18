@@ -4,14 +4,14 @@
 //
 // 構成 (docs/02-Architecture.md 準拠):
 //   - VNet (4 subnets: logicapp / pep / AzureFirewall / jumpbox)
-//   - Route Table (rt-snet-logicapp: 0.0.0.0/0 -> AFW)
-//   - Public IP + Azure Firewall + Firewall Policy (afwp-dir, OAuth/Graph allow)
+//   - Route Table (rt-sendmsg-egress: 0.0.0.0/0 -> AFW)
+//   - Public IP + Azure Firewall + Firewall Policy (afwp-sendmsg, OAuth/Graph allow)
 //   - Log Analytics + Application Insights
 //   - Key Vault (publicNetworkAccess=Disabled, RBAC 認可)
 //   - Storage Account (Logic App host state)
 //   - App Service Plan (WS1) + Logic App Standard (SAMI 有効)
 //   - 6 Private Endpoints + 6 Private DNS Zones (+ vnet link)
-//   - RBAC: Logic App SAMI -> Key Vault Secrets Officer
+//   - RBAC: Logic App SAMI -> Key Vault Secrets Officer + Storage data-plane roles
 //
 // scope: resourceGroup
 // =============================================================================
@@ -26,36 +26,36 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 
 @description('リソース名のプレフィックス / タグ用の環境識別子')
-param namePrefix string = 'dir'
+param namePrefix string = 'sendmsg'
 
 @description('Logic App Standard のサイト名')
-param logicAppName string = 'la-dir-m365-connector'
+param logicAppName string = 'la-sendmsg-m365-connector'
 
 @description('Key Vault 名 (グローバル一意)')
-param keyVaultName string = 'kv-dirm365-3647'
+param keyVaultName string = 'kv-sendmsg-001'
 
 @description('Storage Account 名 (グローバル一意・小文字英数字 3-24)')
 @minLength(3)
 @maxLength(24)
-param storageAccountName string = 'stdirm365${uniqueString(resourceGroup().id)}'
+param storageAccountName string = 'stsendmsg${substring(uniqueString(resourceGroup().id), 0, 3)}'
 
 @description('App Service Plan (WS1) 名')
-param appServicePlanName string = 'asp-dir-workflow'
+param appServicePlanName string = 'asp-sendmsg-workflow'
 
 @description('VNet 名')
-param vnetName string = 'vnet-dir'
+param vnetName string = 'vnet-sendmsg'
 
 @description('Azure Firewall 名')
-param firewallName string = 'afw-dir'
+param firewallName string = 'afw-sendmsg'
 
 @description('Firewall Policy 名')
-param firewallPolicyName string = 'afwp-dir'
+param firewallPolicyName string = 'afwp-sendmsg'
 
 @description('Log Analytics ワークスペース名')
-param logAnalyticsName string = 'log-dir'
+param logAnalyticsName string = 'log-sendmsg'
 
 @description('Application Insights 名')
-param appInsightsName string = 'appi-dir'
+param appInsightsName string = 'appi-sendmsg'
 
 @description('VNet アドレス空間')
 param vnetAddressPrefix string = '10.0.0.0/16'
@@ -86,8 +86,8 @@ var subnetLogicAppName = 'snet-logicapp'
 var subnetPepName = 'snet-pep'
 var subnetFirewallName = 'AzureFirewallSubnet'
 var subnetJumpboxName = 'snet-jumpbox'
-var routeTableName = 'rt-snet-logicapp'
-var firewallPublicIpName = 'pip-afw-dir'
+var routeTableName = 'rt-sendmsg-egress'
+var firewallPublicIpName = 'pip-afw-sendmsg'
 
 // Private DNS zones (PE 種別 -> zone 名 / groupId)
 var privateDnsZoneSites = 'privatelink.azurewebsites.net'
@@ -99,6 +99,10 @@ var privateDnsZoneTable = 'privatelink.table.${environment().suffixes.storage}'
 
 // Key Vault Secrets Officer ロール定義 ID
 var roleKeyVaultSecretsOfficer = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
+var roleStorageAccountContributor = '17d1049b-9a84-46fb-8f53-869881c3d3ab'
+var roleStorageBlobDataOwner = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+var roleStorageQueueDataContributor = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+var roleStorageTableDataContributor = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 
 // -----------------------------------------------------------------------------
 // Networking: Route Table
@@ -195,7 +199,7 @@ resource subnetFirewall 'Microsoft.Network/virtualNetworks/subnets@2023-09-01' e
 }
 
 // -----------------------------------------------------------------------------
-// Azure Firewall + Firewall Policy (afwp-dir)
+// Azure Firewall + Firewall Policy (afwp-sendmsg)
 // -----------------------------------------------------------------------------
 
 resource firewallPublicIp 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
@@ -294,6 +298,35 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
             ]
             ipProtocols: [
               'TCP'
+            ]
+          }
+        ]
+      }
+      {
+        ruleCollectionType: 'FirewallPolicyFilterRuleCollection'
+        name: 'app-storage'
+        priority: 120
+        action: {
+          type: 'Allow'
+        }
+        rules: [
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-azure-storage-api'
+            sourceAddresses: [
+              subnetLogicAppPrefix
+            ]
+            protocols: [
+              {
+                protocolType: 'Https'
+                port: 443
+              }
+            ]
+            targetFqdns: [
+              '*.blob.${environment().suffixes.storage}'
+              '*.file.${environment().suffixes.storage}'
+              '*.queue.${environment().suffixes.storage}'
+              '*.table.${environment().suffixes.storage}'
             ]
           }
         ]
@@ -403,25 +436,13 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
     supportsHttpsTrafficOnly: true
     publicNetworkAccess: 'Enabled'
     networkAcls: {
       bypass: 'AzureServices'
       defaultAction: 'Allow'
     }
-  }
-}
-
-resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2023-05-01' = {
-  parent: storageAccount
-  name: 'default'
-}
-
-resource contentShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = {
-  parent: fileService
-  name: toLower(logicAppName)
-  properties: {
-    shareQuota: 5120
   }
 }
 
@@ -477,16 +498,24 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
           value: 'workflowApp'
         }
         {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
+          name: 'AzureWebJobsStorage__credential'
+          value: 'managedidentity'
         }
         {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
+          name: 'AzureWebJobsStorage__blobServiceUri'
+          value: 'https://${storageAccount.name}.blob.${environment().suffixes.storage}'
         }
         {
-          name: 'WEBSITE_CONTENTSHARE'
-          value: toLower(logicAppName)
+          name: 'AzureWebJobsStorage__queueServiceUri'
+          value: 'https://${storageAccount.name}.queue.${environment().suffixes.storage}'
+        }
+        {
+          name: 'AzureWebJobsStorage__tableServiceUri'
+          value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
+        }
+        {
+          name: 'WEBSITE_SKIP_CONTENTSHARE_VALIDATION'
+          value: '1'
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -507,9 +536,6 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
       ]
     }
   }
-  dependsOn: [
-    contentShare
-  ]
 }
 
 // -----------------------------------------------------------------------------
@@ -521,6 +547,46 @@ resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   name: guid(keyVault.id, logicApp.id, roleKeyVaultSecretsOfficer)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleKeyVaultSecretsOfficer)
+    principalId: logicApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource stRoleAccountContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, logicApp.id, roleStorageAccountContributor)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageAccountContributor)
+    principalId: logicApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource stRoleBlobDataOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, logicApp.id, roleStorageBlobDataOwner)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageBlobDataOwner)
+    principalId: logicApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource stRoleQueueDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, logicApp.id, roleStorageQueueDataContributor)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageQueueDataContributor)
+    principalId: logicApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource stRoleTableDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, logicApp.id, roleStorageTableDataContributor)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageTableDataContributor)
     principalId: logicApp.identity.principalId
     principalType: 'ServicePrincipal'
   }

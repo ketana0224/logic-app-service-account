@@ -13,44 +13,82 @@
 
 ### Phase 0: 環境変数の設定 (5 分)
 
-Azure CLI で対象 subscription に認証
+#### 方法 1: 対話スクリプトを使用（推奨）
 
 ```powershell
 # Azure にログイン
 az login
 
-# subscription を選択
-az account set --subscription "YOUR-SUBSCRIPTION-ID"
+# リポジトリをクローン
+git clone https://github.com/YOUR-ORG/logic-app-service-account.git
+cd logic-app-service-account
 
-# 環境変数を設定 (.env ファイルまたはシェル環境)
+# 対話形式でセットアップ
+pwsh ./setup-env.ps1
+```
+
+このスクリプトは以下を自動的に行います：
+- ✅ Azure コンテキストの検証
+- ✅ 必須環境変数を対話的に入力
+- ✅ `scripts/.env.local` ファイルを自動生成
+- ✅ 環境変数の検証
+
+補足:
+- `SERVICE_ACCOUNT_UPN` は未作成なら空でスキップ可能
+- ただし、Phase 3 (OAuth bootstrap) 前には必ず設定
+
+その後、環境変数をロード：
+```powershell
+. ./scripts/load-env.ps1
+```
+
+#### 方法 2: 手動で環境変数を設定
+
+```powershell
+# Azure にログイン
+az login
+
+# リポジトリをクローン
+git clone https://github.com/YOUR-ORG/logic-app-service-account.git
+cd logic-app-service-account
+
+# 環境変数を設定 (.env.local ファイルまたはシェル環境)
 $env:AZURE_SUBSCRIPTION_ID = "<AZURE_SUBSCRIPTION_ID>"
-$env:AZURE_TENANT_ID = "<AZURE_TENANT_ID>"   # Azure tenant
-$env:M365_TENANT_ID = "<M365_TENANT_ID>"     # Microsoft 365 tenant
+$env:AZURE_TENANT_ID = "<AZURE_TENANT_ID>"                       # Azure tenant
+$env:M365_TENANT_ID = "<M365_TENANT_ID>"                         # Microsoft 365 tenant
+# Service Account 未作成なら後で設定可（Phase 3 前には必須）
 $env:SERVICE_ACCOUNT_UPN = "<service-account>@<your-m365-tenant>.onmicrosoft.com"
 $env:RESOURCE_GROUP_NAME = "<RESOURCE_GROUP_NAME>"
-$env:LOCATION = "<LOCATION>"            # 例: eastus2 (米国東部 2) / japaneast (東日本) / westus2 (米国西部 2)
+$env:LOCATION = "<LOCATION>"                                      # 例: westus2, japaneast, eastus2
+$env:LOGIC_APP_NAME = "la-sendmsg-m365-connector"                 # la-<workload>-<purpose>
+$env:KEY_VAULT_NAME = "kv-sendmsg-001"                            # kv-<workload>-001 (グローバル一意)
+$env:STORAGE_ACCOUNT_NAME = "stsendmsg001"                        # st<workload>001 (英小文字/数字のみ)
+$env:APP_SERVICE_PLAN_NAME = "asp-sendmsg-workflow"               # asp-<workload>-workflow
+$env:VNET_NAME = "vnet-sendmsg"                                   # vnet-<workload>
+$env:FIREWALL_NAME = "afw-sendmsg"                                # afw-<workload>
+$env:FIREWALL_POLICY_NAME = "afwp-sendmsg"                        # afwp-<workload>
+$env:LOG_ANALYTICS_NAME = "log-sendmsg"                           # log-<workload>
+$env:APP_INSIGHTS_NAME = "appi-sendmsg"                           # appi-<workload>
 
 # ↓ Phase 2 で App Registration を作成すると発行される値 (Phase 0 ではまだ未確定)
 #   Phase 2 ステップ 3 完了後に設定する。利用は Phase 3 (OAuth bootstrap)。
 # $env:ENTRA_APP_CLIENT_ID = "<ENTRA_APP_CLIENT_ID>"
 ```
 
-### Phase 1: インフラストラクチャのデプロイ (45 分)
+> **推奨**: `pwsh ./setup-env.ps1` を使用して環境変数を設定することを強くお勧めします。詳細は [README.md](README.md#-環境変数セットアップ) を参照。
+
+### Phase 1: インフラストラクチャの新規作成とデプロイ (45 分)
 
 クローズドネットワーク基盤一式を Bicep でデプロイする。
 
 ```powershell
-# リポジトリをクローン
-git clone https://github.com/YOUR-ORG/logic-app-service-account.git
-cd logic-app-service-account
-
 # パラメータファイルをカスタマイズ
 # infrastructure/bicep/parameters.prod.bicepparam を編集
 #   - location は Windows WS1 が使えるリージョンを指定 (例: westus2 / japaneast / eastus2)
 #     ※ Linux WS1 は westus2 で利用不可、Windows 一択
 #   - keyVaultName / logicAppName 等のグローバル一意名を必要に応じて変更
 
-# リソースグループを作成 (未作成の場合)
+# リソースグループを作成
 az group create -n $env:RESOURCE_GROUP_NAME -l $env:LOCATION
 
 # デプロイ前に検証 (what-if)
@@ -64,19 +102,33 @@ az deployment group create `
     -n logic-app-deployment-$(Get-Date -Format 'yyyyMMddHHmmss') `
     -g $env:RESOURCE_GROUP_NAME `
     --template-file infrastructure/bicep/main.bicep `
-    --parameters infrastructure/bicep/parameters.prod.bicepparam
+    --parameters infrastructure/bicep/parameters.prod.bicepparam `
+        location=$env:LOCATION `
+        logicAppName=$env:LOGIC_APP_NAME `
+        keyVaultName=$env:KEY_VAULT_NAME `
+        storageAccountName=$env:STORAGE_ACCOUNT_NAME `
+        appServicePlanName=$env:APP_SERVICE_PLAN_NAME `
+        vnetName=$env:VNET_NAME `
+        firewallName=$env:FIREWALL_NAME `
+        firewallPolicyName=$env:FIREWALL_POLICY_NAME `
+        logAnalyticsName=$env:LOG_ANALYTICS_NAME `
+        appInsightsName=$env:APP_INSIGHTS_NAME
 ```
 
 作成されるリソース (所要時間: 30〜45 分):
 - VNet + 4 Subnets (snet-logicapp / snet-pep / AzureFirewallSubnet / snet-jumpbox)
-- Route Table `rt-snet-logicapp` (0.0.0.0/0 → Azure Firewall)
-- Public IP + Azure Firewall + Firewall Policy `afwp-dir` (OAuth / Graph 許可ルール)
+- Route Table `rt-sendmsg-egress` (0.0.0.0/0 → Azure Firewall)
+- Public IP + Azure Firewall + Firewall Policy `afwp-sendmsg` (OAuth / Graph 許可ルール)
 - Log Analytics + Application Insights
 - Key Vault (`publicNetworkAccess=Disabled`、RBAC 認可)
 - Storage Account (Logic App host state)
 - App Service Plan (WS1) + Logic App Standard (System-Assigned Managed Identity)
 - 6 Private Endpoints + 6 Private DNS Zones (+ VNet link)
-- RBAC: Logic App SAMI → Key Vault Secrets Officer
+- RBAC: Logic App SAMI → Key Vault Secrets Officer + Storage ロール
+
+> **ポリシー準拠メモ**: `allowSharedKeyAccess=false` のままデプロイ可能。
+> `AzureWebJobsStorage` は Managed Identity 接続（`AzureWebJobsStorage__*`）を使用し、
+> `WEBSITE_CONTENTAZUREFILECONNECTIONSTRING` は使わない構成。
 
 > **補足**: VNet 統合後に `vnetRouteAllEnabled` を再適用したい場合は
 > [scripts/la-vnetroute.ps1](scripts/la-vnetroute.ps1) を使用する。
@@ -140,7 +192,14 @@ Microsoft 365 テナント管理者が以下を実施:
 
 ### Phase 3: OAuth Bootstrap (20 分)
 
-Key Vault を一時的に開放:
+bootstrap スクリプトはローカル PC から Key Vault へ `refresh_token` を直接書き込む。
+Key Vault は `publicNetworkAccess=Disabled` のため一時開放が必要。
+
+> **代替案**: VNet 内の Jumpbox や Azure DevOps Self-hosted Runner など  
+> Private Endpoint 経由で Key Vault にアクセスできる実行環境があれば、  
+> 下記の「一時開放 → 閉鎖」手順は不要。
+
+Key Vault を一時的に開放（ローカル PC から実行する場合のみ）:
 
 ```powershell
 $kvName = "<KEY_VAULT_NAME>"  # 実際の名称に置き換え
@@ -231,9 +290,9 @@ Sent: 2026-06-12T03:46:20Z
 run-id: 08584203709072358571743386284CU00
 ```
 
-### Phase 6: Logic App の PE 化（セキュリティ強化）(5 分)
+### Phase 6: Logic App のネットワーク設定確認（5 分)
 
-現在は Logic App が public access を許可しているため、以下で制限:
+このテンプレートでは Logic App は初期デプロイ時点で `publicNetworkAccess=Disabled`。以下は確認用:
 
 ```powershell
 # Logic App を確認
@@ -241,7 +300,7 @@ az resource show \
     --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/<LOGIC_APP_NAME>" \
     --query properties.publicNetworkAccess
 
-# Public access を disable
+# 必要時のみ（手動で Enabled にした場合）Public access を disable
 az resource update \
     --ids "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/<LOGIC_APP_NAME>" \
     --api-version 2023-12-01 \
@@ -253,8 +312,12 @@ az resource update \
 ```powershell
 pwsh ./scripts/la-jumpbox-create.ps1 `
     -ResourceGroupName $env:RESOURCE_GROUP_NAME `
-    -VnetName "<VNET_NAME>"
+    -VnetName $env:VNET_NAME
 ```
+
+注記:
+- 実行時に管理者パスワードの対話入力が求められる。
+- 既定イメージは Windows 11 Pro, version 24H2、ライセンスは BYOL (`Windows_Client`)。
 
 ### Phase 8: 本番運用開始
 
@@ -325,14 +388,11 @@ az logicapp workflow show-run \
 | **合計** | **$284/月** |
 | + Azure Firewall (新規の場合) | +$900-1200/月 |
 
-詳細は [docs/05-Cost-Analysis.md](docs/05-Cost-Analysis.md) を参照。
-
 ## トラブルシューティング
 
 問題が発生した場合:
 
-1. [docs/04-Troubleshooting.md](docs/04-Troubleshooting.md) を確認
-2. Logic App run history を確認 (`check-run.ps1`)
+1. Logic App run history を確認 (`check-run.ps1`)
 3. Key Vault secret が存在しているか確認
 4. Conditional Access policy が SA をブロックしていないか確認
 

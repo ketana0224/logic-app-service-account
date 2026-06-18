@@ -1,0 +1,8 @@
+{
+  "rdpCommand": "mstsc /v:20.119.233.7",
+  "resourceGroupName": "rg-sendmsg-app",
+  "timestamp": "2026-06-18T11:59:07Z",
+  "vmName": "vm-jump-sendmsg",
+  "username": "azureuser",
+  "publicIp": "20.119.233.7"
+}

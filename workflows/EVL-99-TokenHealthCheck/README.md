@@ -138,13 +138,13 @@ Key Vault から最新 refresh_token を取得。
 # 最後の EVL-99 run を確認
 az logicapp workflow show \
     -g rg-your-group \
-    -n la-dir-m365-connector \
+  -n la-sendmsg-m365-connector \
     -o json | jq '.properties.definition.triggers.Recurrence'
 
 # Run history (最新 10 件)
 az logicapp workflow list-runs \
     -g rg-your-group \
-    -n la-dir-m365-connector \
+  -n la-sendmsg-m365-connector \
     -r EVL-99-TokenHealthCheck \
     --top 10 -o table
 ```
@@ -166,7 +166,7 @@ traces
 # Logic App の Recurrence trigger を手動実行
 az logicapp workflow run-trigger \
     -g rg-your-group \
-    -n la-dir-m365-connector \
+  -n la-sendmsg-m365-connector \
     -r EVL-99-TokenHealthCheck
 ```
 

@@ -289,14 +289,14 @@ trigger の `runtimeConfiguration.concurrency = 1` と同期 Response を併用�
 
 ```powershell
 # KV 開放
-az keyvault update -n kv-dirm365-3647 -g rg-dir `
+az keyvault update -n kv-sendmsg-001 -g rg-sendmsg-app `
     --public-network-access Enabled --default-action Allow
 
 # 再 bootstrap
 pwsh ../../scripts/la-oauth-bootstrap.ps1
 
 # KV 閉鎖
-az keyvault update -n kv-dirm365-3647 -g rg-dir `
+az keyvault update -n kv-sendmsg-001 -g rg-sendmsg-app `
     --public-network-access Disabled --default-action Deny
 ```
 

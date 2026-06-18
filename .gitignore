@@ -8,6 +8,11 @@
 *keyvault*
 *secrets*
 
+# Environment variable files
+.env
+.env.local
+.env.*.local
+
 # Local PowerShell files
 *.local.ps1
 local-config.json

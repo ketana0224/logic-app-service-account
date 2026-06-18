@@ -255,11 +255,8 @@ pwsh ./check-run.ps1 -RunId "<runId>"
 
 | 変更内容 | 更新ドキュメント |
 |---|---|
-| 新 workflow 追加 | `docs/01-Design.md` / 当該 workflow README |
-| OAuth フロー変更 | `docs/03-OAuth-Flow.md` |
-| インフラ変更 | `docs/02-Architecture.md` / bicep template |
-| トラブルシューティング追加 | `docs/04-Troubleshooting.md` |
-| コスト影響 | `docs/05-Cost-Analysis.md` |
+| 新 workflow 追加 | 当該 workflow の README |
+| インフラ変更 | bicep template |
 
 ## GitHub Actions / CI/CD
 
