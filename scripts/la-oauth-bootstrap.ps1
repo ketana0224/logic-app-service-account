@@ -113,7 +113,7 @@ $pkce = New-PKCEChallenge
 Write-Host "✓ PKCE ready"
 
 # Build authorization URL
-$authUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/authorize?" + @(
+$authQuery = @(
     "client_id=$ClientId"
     "redirect_uri=$([System.Web.HttpUtility]::UrlEncode($redirectUri))"
     "response_type=code"
@@ -123,6 +123,8 @@ $authUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/authorize?" 
     "login_hint=$([System.Web.HttpUtility]::UrlEncode($ServiceAccountUPN))"
     "prompt=select_account"
 ) -join "&"
+
+$authUrl = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/authorize?$authQuery"
 
 Write-Host "Authorization URL: $authUrl" -ForegroundColor DarkGray
 
