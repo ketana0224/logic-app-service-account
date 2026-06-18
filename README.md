@@ -309,6 +309,13 @@ SERVICE_ACCOUNT_UPN
 RESOURCE_GROUP_NAME
 ```
 
+`la-oauth-bootstrap.ps1` は Key Vault 保存で `az` を使うため、未導入の場合は先に実行してください。
+
+```powershell
+winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
+az login
+```
+
 `load-env.ps1` と `la-oauth-bootstrap.ps1` は PowerShell 7 (`pwsh`) 前提です。  
 Windows PowerShell 5.1 で `. ./scripts/load-env.ps1` を実行すると `#requires` エラーになります。
 

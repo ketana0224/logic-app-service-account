@@ -241,6 +241,12 @@ pwsh ./scripts/la-oauth-bootstrap.ps1 `
 > さらに `la-oauth-bootstrap.ps1` は Key Vault 書き込みに `az` を使うため、Jumpbox 側でも Azure CLI と `az login` が必要。  
 > Windows PowerShell 5.1 から実行する場合は、`pwsh -NoLogo -NoProfile -Command "Set-Location 'C:\logic-app-service-account'; . ./scripts/load-env.ps1; ./scripts/la-oauth-bootstrap.ps1"` を使う。
 
+```powershell
+# Jumpbox で bootstrap 前に実行（未導入時のみ）
+winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
+az login
+```
+
 ブラウザが開く → Service Account でサインイン (恒久パスワード) → Authorization Code 取得 → refresh_token が KV に自動保存
 
 成功時:
