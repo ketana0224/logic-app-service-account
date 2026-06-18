@@ -254,7 +254,7 @@ mstsc /v:$jumpboxIp
 
 ユーザー名: `azureuser`
 
-RDP セッション内で以下を実行（PowerShell）：
+RDP セッション内で以下を実行（インストール用。ここは Windows PowerShell でも可）：
 
 ```powershell
 # Git と PowerShell をインストール
@@ -305,14 +305,23 @@ SERVICE_ACCOUNT_UPN
 RESOURCE_GROUP_NAME
 ```
 
+`load-env.ps1` と `la-oauth-bootstrap.ps1` は PowerShell 7 (`pwsh`) 前提です。  
+Windows PowerShell 5.1 で `. ./scripts/load-env.ps1` を実行すると `#requires` エラーになります。
+
 ```powershell
-# RDP セッション内で実行
-Set-Location "C:\logic-app-service-account"
-. ./scripts/load-env.ps1
-pwsh ./scripts/la-oauth-bootstrap.ps1
+# Windows PowerShell 5.1 からでも可。PowerShell 7 でまとめて実行する
+pwsh -NoLogo -NoProfile -Command "Set-Location 'C:\logic-app-service-account'; . ./scripts/load-env.ps1; ./scripts/la-oauth-bootstrap.ps1"
 ```
 
-`load-env.ps1` を先に実行しない場合、または `scripts/.env.local` に必要な値が入っていない場合、`M365_TENANT_ID` / `ENTRA_APP_CLIENT_ID` / `SERVICE_ACCOUNT_UPN` が空のままになり、Microsoft Entra の認可 URL が壊れて 404 になります。
+または、先に `pwsh` を起動してから以下を実行します。
+
+```powershell
+Set-Location "C:\logic-app-service-account"
+. ./scripts/load-env.ps1
+./scripts/la-oauth-bootstrap.ps1
+```
+
+`scripts/.env.local` に必要な値が入っていない場合、`M365_TENANT_ID` / `ENTRA_APP_CLIENT_ID` / `SERVICE_ACCOUNT_UPN` が空のままになり、Microsoft Entra の認可 URL が壊れて 404 になります。
 
 #### パターン B: ローカル PC から実行（Jumpbox なし）
 
