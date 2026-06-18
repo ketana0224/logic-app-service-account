@@ -329,8 +329,6 @@ az account set --subscription $env:AZURE_SUBSCRIPTION_ID
 ./scripts/la-oauth-bootstrap.ps1
 ```
 
-`scripts/.env.local` に必要な値が入っていない場合、`M365_TENANT_ID` / `ENTRA_APP_CLIENT_ID` / `SERVICE_ACCOUNT_UPN` が空のままになり、Microsoft Entra の認可 URL が壊れて 404 になります。
-
 #### パターン B: ローカル PC から実行（Jumpbox なし）
 
 KV を一時開放してからスクリプトを実行し、完了後すぐに閉鎖する。
