@@ -169,6 +169,8 @@ Microsoft 365 テナント管理者が以下を実施:
     ```
     概要 > リダイレクト URI を追加する
     または Authentication (Preview)
+    > リダイレクト URI の構成
+    > リダイレクト URI の追加
     > プラットフォームを追加 > モバイルとデスクトップのアプリケーション
     Redirect URI: http://localhost:8400/callback
 

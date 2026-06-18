@@ -174,6 +174,7 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
 4. 登録後に Redirect URI を追加
   アプリ登録の `概要` 画面で `リダイレクト URI を追加する` をクリック
   または左メニューの `Authentication (Preview)` を開く
+  `リダイレクト URI の構成` タブで `リダイレクト URI の追加` をクリック
   `プラットフォームを追加` > `モバイルとデスクトップのアプリケーション`
   リダイレクト URI: `http://localhost:8400/callback`
 
