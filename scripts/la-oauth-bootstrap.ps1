@@ -266,11 +266,12 @@ try {
         --vault-name $KeyVaultName `
         --name "m365-system-notify-refresh-token" `
         --value $tokenResponse.refresh_token | Out-Null
-    
+    if ($LASTEXITCODE -ne 0) { throw "az keyvault secret set failed for refresh-token (exit $LASTEXITCODE)" }
     Write-Host "✓ refresh_token stored in KV secret 'm365-system-notify-refresh-token'"
     
     # Store other useful values
     az keyvault secret set --vault-name $KeyVaultName --name "m365-system-notify-oid" --value $objectId | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "az keyvault secret set failed for oid (exit $LASTEXITCODE)" }
     Write-Host "✓ OID stored in KV secret 'm365-system-notify-oid'"
     
 } catch {
