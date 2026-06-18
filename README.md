@@ -197,9 +197,6 @@ RDP 接続前に、Azure Run Command で git、PowerShell、リポジトリ clon
 
 **オプション A: 自動セットアップ（推奨）**
 
-> **注**: 前の Run Command 実行がある場合は、完了するまで **2～3 分待機**してから次のコマンドを実行してください。  
-> 同時に複数の Run Command は実行できません。
-
 ```powershell
 # jumpbox-info.json から VM 名を取得（または環境変数を使用）
 $jumpboxInfo = if (Test-Path "jumpbox-info.json") {
