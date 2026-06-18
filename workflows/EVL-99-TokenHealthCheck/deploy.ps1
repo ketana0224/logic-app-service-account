@@ -4,7 +4,13 @@
   EVL-99-TokenHealthCheck ワークフローを Logic App にデプロイする
 #>
 
-. "$PSScriptRoot/../../scripts/load-env.ps1"
+$repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
+Push-Location $repoRoot
+try {
+    . "./scripts/load-env.ps1"
+} finally {
+    Pop-Location
+}
 
 $workflowName = "EVL-99-TokenHealthCheck"
 $workflowJson = "$PSScriptRoot/workflow.json"
@@ -13,21 +19,26 @@ Write-Host "=== Deploy: $workflowName ===" -ForegroundColor Cyan
 Write-Host "Logic App     : $env:LOGIC_APP_NAME"
 Write-Host "Resource Group: $env:RESOURCE_GROUP_NAME"
 
-$resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/$env:LOGIC_APP_NAME"
-$vfsPath    = "site/wwwroot/$workflowName/workflow.json"
-$apiVersion = "2023-12-01"
-$uri        = "https://management.azure.com$resourceId/hostruntime/admin/vfs/$($vfsPath)?api-version=$apiVersion"
-
 $token = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
 if (-not $token) { Write-Error "az login が必要です"; exit 1 }
 
-$body = Get-Content $workflowJson -Raw
+$workflowDef = Get-Content $workflowJson -Raw | ConvertFrom-Json
+$armBody = @{
+    properties = @{
+        definition = $workflowDef.definition
+        kind       = $workflowDef.kind
+    }
+} | ConvertTo-Json -Depth 20
 
-Write-Host "Uploading workflow.json..." -ForegroundColor Yellow
-Invoke-RestMethod -Uri $uri -Method Put -Body $body `
+$resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/$env:LOGIC_APP_NAME"
+$apiVersion = "2023-12-01"
+$workflowUri = "https://management.azure.com$resourceId/workflows/$workflowName?api-version=$apiVersion"
+
+Write-Host "Deploying workflow via ARM..." -ForegroundColor Yellow
+Invoke-RestMethod -Uri $workflowUri -Method Put -Body $armBody `
     -Headers @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" } | Out-Null
 
-Write-Host "✓ workflow.json deployed" -ForegroundColor Green
+Write-Host "✓ workflow deployed" -ForegroundColor Green
 
 Write-Host "Restarting Logic App..." -ForegroundColor Yellow
 az webapp restart --name $env:LOGIC_APP_NAME --resource-group $env:RESOURCE_GROUP_NAME | Out-Null
