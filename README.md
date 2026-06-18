@@ -87,11 +87,8 @@ cd logic-app-service-account
 #### オプション A: 対話スクリプトで設定（推奨）
 
 ```powershell
-# Azure にログイン（Key Vault がある Azure 側テナント）
-az login --tenant $env:AZURE_TENANT_ID
-
-# 必要に応じて対象サブスクリプションを明示
-az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+# Azure にログイン（初回はテナント指定なしで可）
+az login
 
 # 対話形式でセットアップ
 pwsh ./setup-env.ps1
@@ -265,9 +262,8 @@ winget install --id Git.Git --exact --silent --accept-source-agreements --accept
 winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
 winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
 
-# Azure にログイン（Key Vault がある Azure 側テナント）
-az login --tenant $env:AZURE_TENANT_ID
-az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+# Azure にログイン（インストール確認）
+az login
 
 # 新しいターミナルを開くか、PATH を更新
 $env:Path += ";C:\Program Files\Git\cmd"
@@ -316,12 +312,14 @@ RESOURCE_GROUP_NAME
 `la-oauth-bootstrap.ps1` は Key Vault 保存で `az` を使います。  
 Azure CLI の導入と `az login` は、上の「RDP セッション内で以下を実行（インストール用）」で先に完了している前提です。
 
+テナント/サブスクリプション指定は、`load-env.ps1` で環境変数を読み込んだ後に実行してください。
+
 `load-env.ps1` と `la-oauth-bootstrap.ps1` は PowerShell 7 (`pwsh`) 前提です。  
 Windows PowerShell 5.1 で `. ./scripts/load-env.ps1` を実行すると `#requires` エラーになります。
 
 ```powershell
 # Windows PowerShell 5.1 からでも可。PowerShell 7 でまとめて実行する
-pwsh -NoLogo -NoProfile -Command "Set-Location 'C:\logic-app-service-account'; . ./scripts/load-env.ps1; ./scripts/la-oauth-bootstrap.ps1"
+pwsh -NoLogo -NoProfile -Command "Set-Location 'C:\logic-app-service-account'; . ./scripts/load-env.ps1; az login --tenant $env:AZURE_TENANT_ID; az account set --subscription $env:AZURE_SUBSCRIPTION_ID; ./scripts/la-oauth-bootstrap.ps1"
 ```
 
 または、先に `pwsh` を起動してから以下を実行します。
@@ -329,6 +327,8 @@ pwsh -NoLogo -NoProfile -Command "Set-Location 'C:\logic-app-service-account'; .
 ```powershell
 Set-Location "C:\logic-app-service-account"
 . ./scripts/load-env.ps1
+az login --tenant $env:AZURE_TENANT_ID
+az account set --subscription $env:AZURE_SUBSCRIPTION_ID
 ./scripts/la-oauth-bootstrap.ps1
 ```
 
