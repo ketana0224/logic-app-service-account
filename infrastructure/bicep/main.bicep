@@ -103,6 +103,7 @@ var roleStorageAccountContributor = '17d1049b-9a84-46fb-8f53-869881c3d3ab'
 var roleStorageBlobDataOwner = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
 var roleStorageQueueDataContributor = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
 var roleStorageTableDataContributor = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+var roleStorageFileDataSmbShareContributor = '0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb'
 
 // -----------------------------------------------------------------------------
 // Networking: Route Table
@@ -514,6 +515,10 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
           value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
         }
         {
+          name: 'AzureWebJobsStorage__fileServiceUri'
+          value: 'https://${storageAccount.name}.file.${environment().suffixes.storage}'
+        }
+        {
           name: 'WEBSITE_SKIP_CONTENTSHARE_VALIDATION'
           value: '1'
         }
@@ -587,6 +592,16 @@ resource stRoleTableDataContributor 'Microsoft.Authorization/roleAssignments@202
   name: guid(storageAccount.id, logicApp.id, roleStorageTableDataContributor)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageTableDataContributor)
+    principalId: logicApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource stRoleFileDataSmbShareContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, logicApp.id, roleStorageFileDataSmbShareContributor)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageFileDataSmbShareContributor)
     principalId: logicApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
