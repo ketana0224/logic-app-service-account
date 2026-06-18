@@ -22,27 +22,26 @@ Write-Host "Resource Group: $env:RESOURCE_GROUP_NAME"
 $token = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
 if (-not $token) { Write-Error "az login が必要です"; exit 1 }
 
-$resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/$env:LOGIC_APP_NAME"
-$apiVersion = "2023-12-01"
-$headers   = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
+# zip デプロイ: ワークフローディレクトリ構造の zip を作成して ARM 経由で配置
+Write-Host "Building deployment zip..." -ForegroundColor Yellow
+$tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "la_deploy_$(Get-Random)"
+$wfDir  = Join-Path $tempDir $workflowName
+New-Item -ItemType Directory -Path $wfDir | Out-Null
+Copy-Item $workflowJson (Join-Path $wfDir "workflow.json")
+$zipPath = "$tempDir.zip"
+Compress-Archive -Path (Join-Path $tempDir "*") -DestinationPath $zipPath -Force
+Write-Host "✓ zip ready" -ForegroundColor Green
 
-# Step 1: ワークフロー用ディレクトリを VFS に作成（末尾スラッシュで PUT）
-$mkdirUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/?api-version=$apiVersion"
-Write-Host "Creating workflow directory..." -ForegroundColor Yellow
-try {
-    Invoke-RestMethod -Uri $mkdirUri -Method Put -Headers $headers -Body "" | Out-Null
-} catch {
-    # 既に存在する場合は無視
-}
-Write-Host "✓ Directory ready" -ForegroundColor Green
+Write-Host "Deploying via az webapp deploy..." -ForegroundColor Yellow
+az webapp deploy `
+    --resource-group $env:RESOURCE_GROUP_NAME `
+    --name $env:LOGIC_APP_NAME `
+    --src-path $zipPath `
+    --type zip `
+    --async false | Out-Null
 
-# Step 2: workflow.json をアップロード
-$fileUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/workflow.json?api-version=$apiVersion"
-$body = Get-Content $workflowJson -Raw
-
-Write-Host "Uploading workflow.json..." -ForegroundColor Yellow
-Invoke-RestMethod -Uri $fileUri -Method Put -Headers $headers -Body $body | Out-Null
-Write-Host "✓ workflow.json deployed" -ForegroundColor Green
+Remove-Item -Recurse -Force $tempDir, $zipPath -ErrorAction SilentlyContinue
+Write-Host "✓ workflow deployed" -ForegroundColor Green
 
 # Logic App を再起動して反映
 Write-Host "Restarting Logic App..." -ForegroundColor Yellow
