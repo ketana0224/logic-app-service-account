@@ -191,82 +191,38 @@ pwsh ./scripts/la-jumpbox-create.ps1 `
 > **注**: 実行時に、ターミナルで **管理者パスワード入力を求められる**（対話入力）。
 > **注**: Jumpbox の既定イメージは **Windows 11 Pro, version 24H2**、ライセンスは **BYOL (`Windows_Client`)**。
 
-#### Jumpbox セットアップ（Azure Run Command）
+#### Jumpbox セットアップ（RDP 接続後）
 
-RDP 接続前に、Azure Run Command で git、PowerShell、リポジトリ clone をすべて自動化できます：
+> **注**: Azure Run Command は SYSTEM アカウントで実行されるため `winget` が使えません。  
+> RDP 接続後に VM 内で直接セットアップしてください。
 
-**オプション A: 自動セットアップ（推奨）**
-
-```powershell
-# jumpbox-info.json から VM 名を取得（または環境変数を使用）
-$jumpboxInfo = if (Test-Path "jumpbox-info.json") {
-    Get-Content "jumpbox-info.json" | ConvertFrom-Json
-} else {
-    @{ vmName = "vm-jump-sendmsg"; resourceGroupName = $env:RESOURCE_GROUP_NAME }
-}
-$JumpboxVmName = $jumpboxInfo.vmName
-$ResourceGroupName = $jumpboxInfo.resourceGroupName
-
-# Conflict（前のコマンド実行中）が解消されるまでリトライ
-$maxRetries = 10
-for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
-    Write-Host "Run Command 実行試行 $attempt/$maxRetries..." -ForegroundColor Cyan
-    $output = az vm run-command invoke `
-        -g $ResourceGroupName `
-        -n $JumpboxVmName `
-        --command-id RunPowerShellScript `
-        --scripts @'
-# Run Command は SYSTEM アカウントで実行されるため winget がパスにない → フルパスで探す
-$winget = Get-ChildItem "C:\Program Files\WindowsApps" -Filter "winget.exe" -Recurse -ErrorAction SilentlyContinue |
-    Select-Object -First 1 -ExpandProperty FullName
-if (-not $winget) { Write-Error "winget not found"; exit 1 }
-
-& $winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
-& $winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
-
-$env:Path += ";C:\Program Files\Git\cmd"
-git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
-'@ 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "セットアップ完了！" -ForegroundColor Green
-        $output | ConvertFrom-Json | Select-Object -ExpandProperty value | ForEach-Object { Write-Host $_.message }
-        break
-    } elseif ($output -match "Conflict") {
-        Write-Host "前の Run Command が実行中です。30秒後に再試行..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 30
-    } else {
-        Write-Host "エラー: $output" -ForegroundColor Red
-        break
-    }
-}
-```
-
-完了後、RDP で接続すればリポジトリは既に `C:\logic-app-service-account` に存在し、すぐに bootstrap を実行できます。
-
-**オプション B: 手動セットアップ（RDP 接続後）**
-
-RDP で接続後、Jumpbox VM 内で手動で Git、PowerShell、リポジトリをセットアップします：
-
-```powershell
-# VM 内で実行：
-winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
-winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
-git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
-```
-
-
-完了後、RDP で接続してからステップ 4（OAuth Bootstrap）に進んでください。
-
-#### RDP 接続
-
-RDP で接続（ユーザー名: `azureuser`）：
+まず RDP で接続：
 
 ```powershell
 $jumpboxIp = (Get-Content jumpbox-info.json | ConvertFrom-Json).publicIp
 mstsc /v:$jumpboxIp
 ```
 
-RDP セッション内で bootstrap を実行する詳細については、以下の **ステップ 4: OAuth Bootstrap** を参照してください。
+ユーザー名: `azureuser`
+
+RDP セッション内で以下を実行（PowerShell）：
+
+```powershell
+# Git と PowerShell をインストール
+winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
+winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
+
+# 新しいターミナルを開くか、PATH を更新
+$env:Path += ";C:\Program Files\Git\cmd"
+
+# リポジトリ clone
+git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
+
+# 確認
+ls C:\
+```
+
+clone が完了したら、ステップ 4（OAuth Bootstrap）に進んでください。
 
 ---  
 このテンプレートでは Logic App は初期デプロイ時点から `publicNetworkAccess=Disabled` のため、`test.ps1` 実行は Jumpbox など VNet 内から行う（または ARM endpoint 経由の間接実行を使う）。
@@ -280,20 +236,9 @@ Key Vault は `publicNetworkAccess=Disabled` のため、**実行環境によっ
 
 Jumpbox VM の RDP セッション内から bootstrap を実行します。
 
-**「セットアップ オプション A」で自動セットアップした場合:**
-
 ```powershell
 # RDP セッション内で実行
 Set-Location "C:\logic-app-service-account"
-pwsh ./scripts/la-oauth-bootstrap.ps1
-```
-
-**「セットアップ オプション B」で手動セットアップした場合:**
-
-```powershell
-# RDP セッション内で実行
-git clone https://github.com/ketana0224/logic-app-service-account.git
-Set-Location "logic-app-service-account"
 pwsh ./scripts/la-oauth-bootstrap.ps1
 ```
 
