@@ -311,9 +311,6 @@ SERVICE_ACCOUNT_UPN
 RESOURCE_GROUP_NAME
 ```
 
-`la-oauth-bootstrap.ps1` は Key Vault 保存で `az` を使います。  
-Azure CLI の導入は、上の「RDP セッション内で以下を実行（インストール用）」で先に完了している前提です。
-
 テナント/サブスクリプション指定は、`load-env.ps1` で環境変数を読み込んだ後に実行してください。
 
 `load-env.ps1` と `la-oauth-bootstrap.ps1` は PowerShell 7 (`pwsh`) 前提です。  
