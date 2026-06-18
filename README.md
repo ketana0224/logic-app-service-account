@@ -166,20 +166,24 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
   TAP (Temporary Access Pass) は使用しない
 
 3. Entra App Registration を作成
-  Azure Portal > Entra ID > App registrations > New registration
-  Name: `Logic App Service Account Auth`
-  Supported account types: `Accounts in this organizational directory only`
-  Redirect URI: `http://localhost:8400/callback`
+  Azure Portal > Entra ID > アプリの登録 > 新規登録
+  名前: `Logic App Service Account Auth`
+  サポートされているアカウントの種類: `シングル テナントのみ`
+  リダイレクト URI: この画面では未設定のままで可
 
-4. Microsoft Graph の Delegated 権限を追加
+4. 登録後に Redirect URI を追加
+  `認証` > `プラットフォームを追加` > `モバイルとデスクトップのアプリケーション`
+  リダイレクト URI: `http://localhost:8400/callback`
+
+5. Microsoft Graph の Delegated 権限を追加
   `User.Read`
   `Chat.ReadWrite`
   `ChatMessage.Send`
   `offline_access`
 
-5. Admin consent を付与
+6. Admin consent を付与
 
-6. 発行された Client ID を `scripts/.env.local` に設定
+7. 発行された `アプリケーション (クライアント) ID` を `scripts/.env.local` に設定
 
 ```powershell
 notepad scripts/.env.local

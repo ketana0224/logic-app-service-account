@@ -157,18 +157,24 @@ Microsoft 365 テナント管理者が以下を実施:
    → TAP (Temporary Access Pass) ❌ 絶対禁止
    ```
 
-3. **Entra App Registration を作成 (またはオブジェクト ID を確認)**
-   ```
-   Azure AD > App registrations > New registration
-   Name: Logic App Service Account Auth
-   Account types: Personal Microsoft accounts only (PKCE/public client 用)
-   Redirect URI: http://localhost:8400/callback
-   
-   → Client ID をメモ (bootstrap で使う)
-   → 環境変数に設定: $env:ENTRA_APP_CLIENT_ID = "<発行された Client ID>"
-   ```
+3. **Entra App Registration を作成**
+    ```
+    Entra ID > アプリの登録 > 新規登録
+    名前: Logic App Service Account Auth
+    サポートされているアカウントの種類: シングル テナントのみ
+    リダイレクト URI: 未設定のままで可
+    ```
 
-4. **Delegated 権限を付与**
+4. **登録後に Redirect URI を追加**
+    ```
+    認証 > プラットフォームを追加 > モバイルとデスクトップのアプリケーション
+    Redirect URI: http://localhost:8400/callback
+
+    → アプリケーション (クライアント) ID をメモ
+    → 環境変数に設定: $env:ENTRA_APP_CLIENT_ID = "<発行された Client ID>"
+    ```
+
+5. **Delegated 権限を付与**
    ```
    API permissions:
    - Microsoft Graph → Delegated
@@ -180,7 +186,7 @@ Microsoft 365 テナント管理者が以下を実施:
    → Admin consent を付与
    ```
 
-5. **(オプション) Conditional Access 除外グループを作成**
+6. **(オプション) Conditional Access 除外グループを作成**
    ```
    Entra ID > Groups > New group
    Name: grp-automation-accounts
