@@ -172,7 +172,9 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
   リダイレクト URI: この画面では未設定のままで可
 
 4. 登録後に Redirect URI を追加
-  `認証` > `プラットフォームを追加` > `モバイルとデスクトップのアプリケーション`
+  アプリ登録の `概要` 画面で `リダイレクト URI を追加する` をクリック
+  または左メニューの `Authentication (Preview)` を開く
+  `プラットフォームを追加` > `モバイルとデスクトップのアプリケーション`
   リダイレクト URI: `http://localhost:8400/callback`
 
 5. Microsoft Graph の Delegated 権限を追加
@@ -183,7 +185,7 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
 
 6. Admin consent を付与
 
-7. 発行された `アプリケーション (クライアント) ID` を `scripts/.env.local` に設定
+7. `概要` 画面の `アプリケーション (クライアント) ID` を `scripts/.env.local` に設定
 
 ```powershell
 notepad scripts/.env.local

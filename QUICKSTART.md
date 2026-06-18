@@ -167,7 +167,9 @@ Microsoft 365 テナント管理者が以下を実施:
 
 4. **登録後に Redirect URI を追加**
     ```
-    認証 > プラットフォームを追加 > モバイルとデスクトップのアプリケーション
+    概要 > リダイレクト URI を追加する
+    または Authentication (Preview)
+    > プラットフォームを追加 > モバイルとデスクトップのアプリケーション
     Redirect URI: http://localhost:8400/callback
 
     → アプリケーション (クライアント) ID をメモ
