@@ -197,6 +197,9 @@ RDP 接続前に、Azure Run Command で git、PowerShell、リポジトリ clon
 
 **オプション A: 自動セットアップ（推奨）**
 
+> **注**: 前の Run Command 実行がある場合は、完了するまで **2～3 分待機**してから次のコマンドを実行してください。  
+> 同時に複数の Run Command は実行できません。
+
 ```powershell
 # jumpbox-info.json から VM 名を取得（または環境変数を使用）
 $jumpboxInfo = if (Test-Path "jumpbox-info.json") {
@@ -206,6 +209,9 @@ $jumpboxInfo = if (Test-Path "jumpbox-info.json") {
 }
 $JumpboxVmName = $jumpboxInfo.vmName
 $ResourceGroupName = $jumpboxInfo.resourceGroupName
+
+# 前のコマンド実行が完了するまで待機（念のため）
+Start-Sleep -Seconds 120
 
 # Azure Run Command で git / pwsh インストール + リポジトリ clone
 az vm run-command invoke `
@@ -230,39 +236,19 @@ Write-Host "Setup complete!" -ForegroundColor Green
 
 **オプション B: 手動セットアップ（RDP 接続後）**
 
-Azure Run Command で git/pwsh のみインストール：
+RDP で接続後、Jumpbox VM 内で手動で Git、PowerShell、リポジトリをセットアップします：
 
 ```powershell
-# jumpbox-info.json から VM 名を取得（または環境変数を使用）
-$jumpboxInfo = if (Test-Path "jumpbox-info.json") {
-    Get-Content "jumpbox-info.json" | ConvertFrom-Json
-} else {
-    @{ vmName = "vm-jump-sendmsg"; resourceGroupName = $env:RESOURCE_GROUP_NAME }
-}
-$JumpboxVmName = $jumpboxInfo.vmName
-$ResourceGroupName = $jumpboxInfo.resourceGroupName
-
-az vm run-command invoke `
-    -g $ResourceGroupName `
-    -n $JumpboxVmName `
-    --command-id RunPowerShellScript `
-    --scripts @'
-Write-Host "Installing Git..." -ForegroundColor Yellow
+# VM 内で実行：
 winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
-
-Write-Host "Installing PowerShell..." -ForegroundColor Yellow
 winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
-
-Write-Host "Setup complete!" -ForegroundColor Green
-'@
+git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
 ```
 
-その後 RDP で接続し、VM 内で手動で clone 実行。
 
+完了後、RDP で接続してからステップ 4（OAuth Bootstrap）に進んでください。
 
-完了後、RDP で接続してからそのまま bootstrap / テストを実行できます。
-
-#### RDP 接続と Bootstrap 実行
+#### RDP 接続
 
 RDP で接続（ユーザー名: `azureuser`）：
 
@@ -271,26 +257,9 @@ $jumpboxIp = (Get-Content jumpbox-info.json | ConvertFrom-Json).publicIp
 mstsc /v:$jumpboxIp
 ```
 
-RDP セッション内で以下を実行：
+RDP セッション内で bootstrap を実行する詳細については、以下の **ステップ 4: OAuth Bootstrap** を参照してください。
 
-**「オプション A」を使った場合（リポジトリが既にある）**
-
-```powershell
-Set-Location "C:\logic-app-service-account"
-pwsh ./scripts/la-oauth-bootstrap.ps1
-```
-
-**「オプション B」を使った場合（手動 clone）**
-
-```powershell
-git clone https://github.com/ketana0224/logic-app-service-account.git
-Set-Location "logic-app-service-account"
-pwsh ./scripts/la-oauth-bootstrap.ps1
-```
-
----
-
-Jumpbox を作成しない場合でも、**bootstrap 自体は**ステップ 4 の「パターン B（KV 一時開放）」で実行できます。  
+---  
 このテンプレートでは Logic App は初期デプロイ時点から `publicNetworkAccess=Disabled` のため、`test.ps1` 実行は Jumpbox など VNet 内から行う（または ARM endpoint 経由の間接実行を使う）。
 
 ### ステップ 4: OAuth Bootstrap（初回のみ）
@@ -300,10 +269,22 @@ Key Vault は `publicNetworkAccess=Disabled` のため、**実行環境によっ
 
 #### パターン A: Jumpbox あり（ステップ 3.5 を実施済み）
 
-Jumpbox VM 内から bootstrap を実行する（詳細は上記「RDP 接続と Bootstrap 実行」を参照）。
+Jumpbox VM の RDP セッション内から bootstrap を実行します。
+
+**「セットアップ オプション A」で自動セットアップした場合:**
 
 ```powershell
 # RDP セッション内で実行
+Set-Location "C:\logic-app-service-account"
+pwsh ./scripts/la-oauth-bootstrap.ps1
+```
+
+**「セットアップ オプション B」で手動セットアップした場合:**
+
+```powershell
+# RDP セッション内で実行
+git clone https://github.com/ketana0224/logic-app-service-account.git
+Set-Location "logic-app-service-account"
 pwsh ./scripts/la-oauth-bootstrap.ps1
 ```
 
