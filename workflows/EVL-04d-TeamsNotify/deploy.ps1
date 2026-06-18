@@ -22,23 +22,27 @@ Write-Host "Resource Group: $env:RESOURCE_GROUP_NAME"
 $token = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
 if (-not $token) { Write-Error "az login が必要です"; exit 1 }
 
-# workflow 定義を読み込んで ARM workflows リソースとして PUT
-$workflowDef = Get-Content $workflowJson -Raw | ConvertFrom-Json
-$armBody = @{
-    properties = @{
-        definition = $workflowDef.definition
-        kind       = $workflowDef.kind
-    }
-} | ConvertTo-Json -Depth 20
-
 $resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/$env:LOGIC_APP_NAME"
 $apiVersion = "2023-12-01"
-$workflowUri = "https://management.azure.com$resourceId/workflows/$workflowName?api-version=$apiVersion"
+$headers   = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
 
-Write-Host "Deploying workflow via ARM..." -ForegroundColor Yellow
-Invoke-RestMethod -Uri $workflowUri -Method Put -Body $armBody `
-    -Headers @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" } | Out-Null
-Write-Host "✓ workflow deployed" -ForegroundColor Green
+# Step 1: ワークフロー用ディレクトリを VFS に作成（末尾スラッシュで PUT）
+$mkdirUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/?api-version=$apiVersion"
+Write-Host "Creating workflow directory..." -ForegroundColor Yellow
+try {
+    Invoke-RestMethod -Uri $mkdirUri -Method Put -Headers $headers -Body "" | Out-Null
+} catch {
+    # 既に存在する場合は無視
+}
+Write-Host "✓ Directory ready" -ForegroundColor Green
+
+# Step 2: workflow.json をアップロード
+$fileUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/workflow.json?api-version=$apiVersion"
+$body = Get-Content $workflowJson -Raw
+
+Write-Host "Uploading workflow.json..." -ForegroundColor Yellow
+Invoke-RestMethod -Uri $fileUri -Method Put -Headers $headers -Body $body | Out-Null
+Write-Host "✓ workflow.json deployed" -ForegroundColor Green
 
 # Logic App を再起動して反映
 Write-Host "Restarting Logic App..." -ForegroundColor Yellow
