@@ -87,8 +87,11 @@ cd logic-app-service-account
 #### オプション A: 対話スクリプトで設定（推奨）
 
 ```powershell
-# Azure にログイン
-az login
+# Azure にログイン（Key Vault がある Azure 側テナント）
+az login --tenant $env:AZURE_TENANT_ID
+
+# 必要に応じて対象サブスクリプションを明示
+az account set --subscription $env:AZURE_SUBSCRIPTION_ID
 
 # 対話形式でセットアップ
 pwsh ./setup-env.ps1
