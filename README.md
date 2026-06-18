@@ -219,8 +219,15 @@ for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
         -n $JumpboxVmName `
         --command-id RunPowerShellScript `
         --scripts @'
-winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
-winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
+# Run Command は SYSTEM アカウントで実行されるため winget がパスにない → フルパスで探す
+$winget = Get-ChildItem "C:\Program Files\WindowsApps" -Filter "winget.exe" -Recurse -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $winget) { Write-Error "winget not found"; exit 1 }
+
+& $winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
+& $winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
+
+$env:Path += ";C:\Program Files\Git\cmd"
 git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
 '@ 2>&1
     if ($LASTEXITCODE -eq 0) {
