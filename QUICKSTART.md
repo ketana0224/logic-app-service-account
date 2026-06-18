@@ -179,16 +179,22 @@ Microsoft 365 テナント管理者が以下を実施:
     ```
 
 5. **Delegated 権限を付与**
-   ```
-   API permissions:
-   - Microsoft Graph → Delegated
-     - User.Read
-     - Chat.ReadWrite
-     - ChatMessage.Send
-     - offline_access
-   
-   → Admin consent を付与
-   ```
+    ```
+    左メニュー > API のアクセス許可
+    > アクセス許可の追加
+    > Microsoft Graph
+    > 委任されたアクセス許可
+
+    追加する権限:
+    - User.Read
+    - Chat.ReadWrite
+    - ChatMessage.Send
+    - offline_access
+
+    追加後:
+    > Contoso に管理者の同意を与えます
+    > 状態 列で同意済みを確認
+    ```
 
 6. **(オプション) Conditional Access 除外グループを作成**
    ```

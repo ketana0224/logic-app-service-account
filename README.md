@@ -179,12 +179,17 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
   リダイレクト URI: `http://localhost:8400/callback`
 
 5. Microsoft Graph の Delegated 権限を追加
+  左メニューの `API のアクセス許可` を開く
+  `アクセス許可の追加` > `Microsoft Graph` > `委任されたアクセス許可`
+  以下を追加
   `User.Read`
   `Chat.ReadWrite`
   `ChatMessage.Send`
   `offline_access`
 
 6. Admin consent を付与
+  `API のアクセス許可` 画面で `Contoso に管理者の同意を与えます` をクリック
+  `状態` 列が同意済みになったことを確認
 
 7. `概要` 画面の `アプリケーション (クライアント) ID` を `scripts/.env.local` に設定
 
