@@ -369,6 +369,9 @@ az keyvault update -n $env:KEY_VAULT_NAME -g $env:RESOURCE_GROUP_NAME `
 
 ### ステップ 5: ワークフローのデプロイ
 
+`deploy.ps1` は ARM（コントロールプレーン）経由でデプロイするため、**ローカル PC から実行可能**です。  
+Logic App の `publicNetworkAccess=Disabled` の影響を受けません。
+
 ```powershell
 # EVL-04d-TeamsNotify（Teams 通知送信）
 cd workflows/EVL-04d-TeamsNotify
