@@ -210,29 +210,31 @@ $jumpboxInfo = if (Test-Path "jumpbox-info.json") {
 $JumpboxVmName = $jumpboxInfo.vmName
 $ResourceGroupName = $jumpboxInfo.resourceGroupName
 
-# 前のコマンド実行が完了するまで待機（進捗表示付き）
-for ($i = 1; $i -le 4; $i++) {
-    Write-Host "前のコマンド実行が完了するまで待機... ($i/4)" -ForegroundColor Yellow
-    Start-Sleep -Seconds 30
-}
-
-# Azure Run Command で git / pwsh インストール + リポジトリ clone
-az vm run-command invoke `
-    -g $ResourceGroupName `
-    -n $JumpboxVmName `
-    --command-id RunPowerShellScript `
-    --scripts @'
-Write-Host "Installing Git..." -ForegroundColor Yellow
+# Conflict（前のコマンド実行中）が解消されるまでリトライ
+$maxRetries = 10
+for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+    Write-Host "Run Command 実行試行 $attempt/$maxRetries..." -ForegroundColor Cyan
+    $output = az vm run-command invoke `
+        -g $ResourceGroupName `
+        -n $JumpboxVmName `
+        --command-id RunPowerShellScript `
+        --scripts @'
 winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
-
-Write-Host "Installing PowerShell..." -ForegroundColor Yellow
 winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
-
-Write-Host "Cloning repository..." -ForegroundColor Yellow
 git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
-
-Write-Host "Setup complete!" -ForegroundColor Green
-'@
+'@ 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "セットアップ完了！" -ForegroundColor Green
+        $output | ConvertFrom-Json | Select-Object -ExpandProperty value | ForEach-Object { Write-Host $_.message }
+        break
+    } elseif ($output -match "Conflict") {
+        Write-Host "前の Run Command が実行中です。30秒後に再試行..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+    } else {
+        Write-Host "エラー: $output" -ForegroundColor Red
+        break
+    }
+}
 ```
 
 完了後、RDP で接続すればリポジトリは既に `C:\logic-app-service-account` に存在し、すぐに bootstrap を実行できます。
