@@ -229,13 +229,10 @@ az deployment group create `
 デプロイ完了後、bootstrap を実行するユーザーに Key Vault への書き込み権限を付与します。
 
 ```powershell
-# bootstrap 実行ユーザーのオブジェクト ID を確認
-az ad signed-in-user show --query id -o tsv
-
-# Key Vault Secrets Officer を付与
+$myObjectId = az ad signed-in-user show --query id -o tsv
 az role assignment create `
     --role "Key Vault Secrets Officer" `
-    --assignee <上記で取得した object-id> `
+    --assignee $myObjectId `
     --scope /subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.KeyVault/vaults/$env:KEY_VAULT_NAME
 ```
 
