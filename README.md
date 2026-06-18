@@ -262,8 +262,10 @@ winget install --id Git.Git --exact --silent --accept-source-agreements --accept
 winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
 winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
 
-# Azure にログイン（インストール確認）
-az login
+# インストール確認
+git --version
+pwsh --version
+az --version
 
 # 新しいターミナルを開くか、PATH を更新
 $env:Path += ";C:\Program Files\Git\cmd"
@@ -310,7 +312,7 @@ RESOURCE_GROUP_NAME
 ```
 
 `la-oauth-bootstrap.ps1` は Key Vault 保存で `az` を使います。  
-Azure CLI の導入と `az login` は、上の「RDP セッション内で以下を実行（インストール用）」で先に完了している前提です。
+Azure CLI の導入は、上の「RDP セッション内で以下を実行（インストール用）」で先に完了している前提です。
 
 テナント/サブスクリプション指定は、`load-env.ps1` で環境変数を読み込んだ後に実行してください。
 
