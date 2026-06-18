@@ -311,8 +311,6 @@ SERVICE_ACCOUNT_UPN
 RESOURCE_GROUP_NAME
 ```
 
-テナント/サブスクリプション指定は、`load-env.ps1` で環境変数を読み込んだ後に実行してください。
-
 `load-env.ps1` と `la-oauth-bootstrap.ps1` は PowerShell 7 (`pwsh`) 前提です。  
 Windows PowerShell 5.1 で `. ./scripts/load-env.ps1` を実行すると `#requires` エラーになります。
 
