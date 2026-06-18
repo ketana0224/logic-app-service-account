@@ -198,13 +198,18 @@ RDP 接続前に、Azure Run Command で git、PowerShell、リポジトリ clon
 **オプション A: 自動セットアップ（推奨）**
 
 ```powershell
-# Jumpbox VM の既定名
-$JumpboxVmName = "vm-jump-sendmsg"
-$RepoUrl = "https://github.com/ketana0224/logic-app-service-account.git"  # public リポジトリ
+# jumpbox-info.json から VM 名を取得（または環境変数を使用）
+$jumpboxInfo = if (Test-Path "jumpbox-info.json") {
+    Get-Content "jumpbox-info.json" | ConvertFrom-Json
+} else {
+    @{ vmName = "vm-jump-sendmsg"; resourceGroupName = $env:RESOURCE_GROUP_NAME }
+}
+$JumpboxVmName = $jumpboxInfo.vmName
+$ResourceGroupName = $jumpboxInfo.resourceGroupName
 
 # Azure Run Command で git / pwsh インストール + リポジトリ clone
 az vm run-command invoke `
-    -g $env:RESOURCE_GROUP_NAME `
+    -g $ResourceGroupName `
     -n $JumpboxVmName `
     --command-id RunPowerShellScript `
     --scripts @'
@@ -228,10 +233,17 @@ Write-Host "Setup complete!" -ForegroundColor Green
 Azure Run Command で git/pwsh のみインストール：
 
 ```powershell
-$JumpboxVmName = "vm-jump-sendmsg"
+# jumpbox-info.json から VM 名を取得（または環境変数を使用）
+$jumpboxInfo = if (Test-Path "jumpbox-info.json") {
+    Get-Content "jumpbox-info.json" | ConvertFrom-Json
+} else {
+    @{ vmName = "vm-jump-sendmsg"; resourceGroupName = $env:RESOURCE_GROUP_NAME }
+}
+$JumpboxVmName = $jumpboxInfo.vmName
+$ResourceGroupName = $jumpboxInfo.resourceGroupName
 
 az vm run-command invoke `
-    -g $env:RESOURCE_GROUP_NAME `
+    -g $ResourceGroupName `
     -n $JumpboxVmName `
     --command-id RunPowerShellScript `
     --scripts @'
