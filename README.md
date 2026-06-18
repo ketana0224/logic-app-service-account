@@ -287,6 +287,23 @@ clone が完了したら、ステップ 4（OAuth Bootstrap）に進んでくだ
 bootstrap スクリプトが `refresh_token` を Key Vault に書き込む。  
 Key Vault は `publicNetworkAccess=Disabled` のため、**実行環境によって手順が異なる**。
 
+> **前提: bootstrap を実行するユーザーへの RBAC 付与**  
+> bootstrap を実行する Azure ユーザーに `kv-sendmsg-001` の **Key Vault Secrets Officer** ロールが必要です。  
+> 未付与の場合、Key Vault への書き込みが `ForbiddenByRbac` で失敗します。
+>
+> ```powershell
+> # bootstrap 実行ユーザーのオブジェクト ID を確認
+> az ad signed-in-user show --query id -o tsv
+>
+> # Key Vault Secrets Officer を付与
+> az role assignment create `
+>     --role "Key Vault Secrets Officer" `
+>     --assignee <上記で取得した object-id> `
+>     --scope /subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.KeyVault/vaults/$env:KEY_VAULT_NAME
+> ```
+>
+> RBAC 伝播には最大 2〜3 分かかります。付与後に bootstrap を実行してください。
+
 #### パターン A: Jumpbox あり（ステップ 3.5 を実施済み）
 
 Jumpbox VM の RDP セッション内から bootstrap を実行します。
