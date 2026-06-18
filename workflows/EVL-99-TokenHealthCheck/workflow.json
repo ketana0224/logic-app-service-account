@@ -1,0 +1,122 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "Recurrence": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Hour",
+          "interval": 6
+        }
+      }
+    },
+    "actions": {
+      "Initialize_Variables": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "kvUri",
+              "type": "string",
+              "value": "@{concat('https://', parameters('KEYVAULT_NAME'), '.vault.azure.net')}"
+            },
+            {
+              "name": "tenantId",
+              "type": "string",
+              "value": "@{parameters('M365_TENANT_ID')}"
+            },
+            {
+              "name": "clientId",
+              "type": "string",
+              "value": "@{parameters('ENTRA_APP_CLIENT_ID')}"
+            }
+          ]
+        },
+        "runAfter": {}
+      },
+      "Get_Refresh_Token": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "@{concat(variables('kvUri'), '/secrets/', parameters('REFRESH_TOKEN_SECRET_NAME'), '?api-version=7.0')}",
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://vault.azure.net"
+          }
+        },
+        "runAfter": {
+          "Initialize_Variables": ["Succeeded"]
+        }
+      },
+      "Token_Refresh": {
+        "type": "Http",
+        "inputs": {
+          "method": "POST",
+          "uri": "@{concat('https://login.microsoftonline.com/', variables('tenantId'), '/oauth2/v2.0/token')}",
+          "headers": {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          "body": "@{concat('grant_type=refresh_token&client_id=', variables('clientId'), '&refresh_token=', body('Get_Refresh_Token')['value'], '&scope=https%3A%2F%2Fgraph.microsoft.com%2FUser.Read+https%3A%2F%2Fgraph.microsoft.com%2FChat.ReadWrite+https%3A%2F%2Fgraph.microsoft.com%2FChatMessage.Send+offline_access')}"
+        },
+        "runAfter": {
+          "Get_Refresh_Token": ["Succeeded"]
+        }
+      },
+      "Update_Refresh_Token": {
+        "type": "Http",
+        "inputs": {
+          "method": "PUT",
+          "uri": "@{concat(variables('kvUri'), '/secrets/', parameters('REFRESH_TOKEN_SECRET_NAME'), '?api-version=7.0')}",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "value": "@{body('Token_Refresh')['refresh_token']}"
+          },
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://vault.azure.net"
+          }
+        },
+        "runAfter": {
+          "Token_Refresh": ["Succeeded"]
+        }
+      },
+      "Build_Health_Result": {
+        "type": "Compose",
+        "inputs": {
+          "evaluation": "EVL-99",
+          "type": "TokenHealthCheck",
+          "status": "completed",
+          "timestamp": "@{utcNow()}",
+          "tokenRefreshed": true,
+          "nextRotation": "@{addHours(utcNow(), 6)}",
+          "entraMaxAgeResetTime": "@{utcNow()}"
+        },
+        "runAfter": {
+          "Update_Refresh_Token": ["Succeeded"]
+        }
+      }
+    },
+    "parameters": {
+      "KEYVAULT_NAME": {
+        "type": "string",
+        "defaultValue": ""
+      },
+      "REFRESH_TOKEN_SECRET_NAME": {
+        "type": "string",
+        "defaultValue": "m365-system-notify-refresh-token"
+      },
+      "M365_TENANT_ID": {
+        "type": "string",
+        "defaultValue": ""
+      },
+      "ENTRA_APP_CLIENT_ID": {
+        "type": "string",
+        "defaultValue": ""
+      }
+    }
+  },
+  "kind": "Stateful"
+}

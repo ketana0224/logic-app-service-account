@@ -1,0 +1,243 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "Http",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "recipient": {
+                "type": "string",
+                "description": "M365 user UPN (e.g., AdilE@contoso.onmicrosoft.com)"
+              },
+              "subject": {
+                "type": "string",
+                "default": "Teams Notification"
+              },
+              "message": {
+                "type": "string",
+                "description": "Message body (plain text or HTML)"
+              }
+            },
+            "required": ["recipient", "message"]
+          }
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "runs": 1
+          }
+        }
+      }
+    },
+    "actions": {
+      "Initialize_Variables": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "kvUri",
+              "type": "string",
+              "value": "@{concat('https://', parameters('KEYVAULT_NAME'), '.vault.azure.net')}"
+            },
+            {
+              "name": "tenantId",
+              "type": "string",
+              "value": "@{parameters('M365_TENANT_ID')}"
+            },
+            {
+              "name": "clientId",
+              "type": "string",
+              "value": "@{parameters('ENTRA_APP_CLIENT_ID')}"
+            },
+            {
+              "name": "systemNotifyOid",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        "runAfter": {}
+      },
+      "Get_System_Notify_OID": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "@{concat(variables('kvUri'), '/secrets/m365-system-notify-oid?api-version=7.0')}",
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://vault.azure.net"
+          }
+        },
+        "runAfter": {
+          "Initialize_Variables": ["Succeeded"]
+        }
+      },
+      "Set_System_Notify_OID": {
+        "type": "SetVariable",
+        "inputs": {
+          "name": "systemNotifyOid",
+          "value": "@{body('Get_System_Notify_OID')['value']}"
+        },
+        "runAfter": {
+          "Get_System_Notify_OID": ["Succeeded"]
+        }
+      },
+      "Lookup_Recipient_OID": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "@{concat('https://graph.microsoft.com/v1.0/users/', encodeUriComponent(triggerBody()['recipient']), '?$select=id')}",
+          "headers": {
+            "Authorization": "@{concat('Bearer ', body('Token_Refresh')['access_token'])}"
+          }
+        },
+        "runAfter": {
+          "Token_Refresh": ["Succeeded"]
+        }
+      },
+      "Get_Refresh_Token": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "@{concat(variables('kvUri'), '/secrets/', parameters('REFRESH_TOKEN_SECRET_NAME'), '?api-version=7.0')}",
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://vault.azure.net"
+          }
+        },
+        "runAfter": {
+          "Set_System_Notify_OID": ["Succeeded"]
+        }
+      },
+      "Token_Refresh": {
+        "type": "Http",
+        "inputs": {
+          "method": "POST",
+          "uri": "@{concat('https://login.microsoftonline.com/', variables('tenantId'), '/oauth2/v2.0/token')}",
+          "headers": {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          "body": "@{concat('grant_type=refresh_token&client_id=', variables('clientId'), '&refresh_token=', body('Get_Refresh_Token')['value'], '&scope=https%3A%2F%2Fgraph.microsoft.com%2FUser.Read+https%3A%2F%2Fgraph.microsoft.com%2FChat.ReadWrite+https%3A%2F%2Fgraph.microsoft.com%2FChatMessage.Send+offline_access')}"
+        },
+        "runAfter": {
+          "Get_Refresh_Token": ["Succeeded"]
+        }
+      },
+      "Update_Refresh_Token": {
+        "type": "Http",
+        "inputs": {
+          "method": "PUT",
+          "uri": "@{concat(variables('kvUri'), '/secrets/', parameters('REFRESH_TOKEN_SECRET_NAME'), '?api-version=7.0')}",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "value": "@{body('Token_Refresh')['refresh_token']}"
+          },
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "audience": "https://vault.azure.net"
+          }
+        },
+        "runAfter": {
+          "Lookup_Recipient_OID": ["Succeeded"]
+        }
+      },
+      "Create_Chat": {
+        "type": "Http",
+        "inputs": {
+          "method": "POST",
+          "uri": "https://graph.microsoft.com/v1.0/chats",
+          "headers": {
+            "Authorization": "@{concat('Bearer ', body('Token_Refresh')['access_token'])}",
+            "Content-Type": "application/json"
+          },
+          "body": "@{concat('{\"chatType\":\"oneOnOne\",\"members\":[{\"@odata.type\":\"#microsoft.graph.aadUserConversationMember\",\"roles\":[\"owner\"],\"user@odata.bind\":\"https://graph.microsoft.com/v1.0/users/', variables('systemNotifyOid'), '\"},{\"@odata.type\":\"#microsoft.graph.aadUserConversationMember\",\"roles\":[\"owner\"],\"user@odata.bind\":\"https://graph.microsoft.com/v1.0/users/', body('Lookup_Recipient_OID')['id'], '\"}]}')}"
+        },
+        "runAfter": {
+          "Update_Refresh_Token": ["Succeeded"]
+        }
+      },
+      "Create_Chat_ID": {
+        "type": "Compose",
+        "inputs": "@{body('Create_Chat')['id']}",
+        "runAfter": {
+          "Create_Chat": ["Succeeded"]
+        }
+      },
+      "Send_Message": {
+        "type": "Http",
+        "inputs": {
+          "method": "POST",
+          "uri": "@{concat('https://graph.microsoft.com/v1.0/chats/', outputs('Create_Chat_ID'), '/messages')}",
+          "headers": {
+            "Authorization": "@{concat('Bearer ', body('Token_Refresh')['access_token'])}",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "body": {
+              "contentType": "html",
+              "content": "@{concat('<p><strong>', triggerBody()['subject'], '</strong></p><p>', triggerBody()['message'], '</p>')}"
+            }
+          }
+        },
+        "runAfter": {
+          "Create_Chat_ID": ["Succeeded"]
+        }
+      },
+      "Build_Result": {
+        "type": "Compose",
+        "inputs": {
+          "evaluation": "EVL-04d",
+          "status": "completed",
+          "timestamp": "@{utcNow()}",
+          "recipient": "@{triggerBody()['recipient']}",
+          "chatId": "@{outputs('Create_Chat_ID')}",
+          "messageId": "@{body('Send_Message')['id']}",
+          "tokenRotated": true,
+          "allActionsSucceeded": true
+        },
+        "runAfter": {
+          "Send_Message": ["Succeeded"]
+        }
+      },
+      "Response": {
+        "type": "Response",
+        "inputs": {
+          "statusCode": 202,
+          "body": "@outputs('Build_Result')",
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        "operationOptions": "Asynchronous",
+        "runAfter": {
+          "Build_Result": ["Succeeded"]
+        }
+      }
+    },
+    "parameters": {
+      "KEYVAULT_NAME": {
+        "type": "string",
+        "defaultValue": ""
+      },
+      "REFRESH_TOKEN_SECRET_NAME": {
+        "type": "string",
+        "defaultValue": "m365-system-notify-refresh-token"
+      },
+      "M365_TENANT_ID": {
+        "type": "string",
+        "defaultValue": ""
+      },
+      "ENTRA_APP_CLIENT_ID": {
+        "type": "string",
+        "defaultValue": ""
+      }
+    }
+  },
+  "kind": "Stateful"
+}
