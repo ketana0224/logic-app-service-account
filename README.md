@@ -236,6 +236,26 @@ Key Vault は `publicNetworkAccess=Disabled` のため、**実行環境によっ
 
 Jumpbox VM の RDP セッション内から bootstrap を実行します。
 
+`scripts/.env.local` はローカル専用ファイルのため、Git clone の対象外です。  
+そのため、Jumpbox 上では bootstrap 実行前に `.env.local` を作成して値を入れる必要があります。
+
+```powershell
+# RDP セッション内で実行
+Set-Location "C:\logic-app-service-account"
+Copy-Item .env.example scripts/.env.local
+notepad scripts/.env.local
+```
+
+最低限、以下を実環境の値に更新してください。
+
+```text
+M365_TENANT_ID
+ENTRA_APP_CLIENT_ID
+KEY_VAULT_NAME
+SERVICE_ACCOUNT_UPN
+RESOURCE_GROUP_NAME
+```
+
 ```powershell
 # RDP セッション内で実行
 Set-Location "C:\logic-app-service-account"
@@ -243,7 +263,7 @@ Set-Location "C:\logic-app-service-account"
 pwsh ./scripts/la-oauth-bootstrap.ps1
 ```
 
-`load-env.ps1` を先に実行しないと、`M365_TENANT_ID` / `ENTRA_APP_CLIENT_ID` / `SERVICE_ACCOUNT_UPN` が空のままになり、Microsoft Entra の認可 URL が壊れて 404 になります。
+`load-env.ps1` を先に実行しない場合、または `scripts/.env.local` に必要な値が入っていない場合、`M365_TENANT_ID` / `ENTRA_APP_CLIENT_ID` / `SERVICE_ACCOUNT_UPN` が空のままになり、Microsoft Entra の認可 URL が壊れて 404 になります。
 
 #### パターン B: ローカル PC から実行（Jumpbox なし）
 
