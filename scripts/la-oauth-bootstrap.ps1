@@ -107,6 +107,33 @@ Or pass parameters explicitly:
     exit 1
 }
 
+if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
+    Write-Error @"
+Azure CLI (az) が見つかりません。
+
+This script writes secrets to Key Vault using az CLI, so az is required.
+Install Azure CLI, then sign in before running bootstrap:
+  winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
+  az login
+"@
+    exit 1
+}
+
+try {
+    $azAccount = az account show --query id -o tsv
+    if (-not $azAccount) {
+        throw "No active az login context"
+    }
+} catch {
+    Write-Error @"
+Azure CLI は見つかりましたが、ログイン状態ではありません。
+
+Run:
+  az login
+"@
+    exit 1
+}
+
 # Generate PKCE challenge
 Write-Host "Generating PKCE challenge..." -ForegroundColor Yellow
 $pkce = New-PKCEChallenge

@@ -260,6 +260,10 @@ RDP セッション内で以下を実行（インストール用。ここは Win
 # Git と PowerShell をインストール
 winget install --id Git.Git --exact --silent --accept-source-agreements --accept-package-agreements
 winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
+winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
+
+# Azure にログイン
+az login
 
 # 新しいターミナルを開くか、PATH を更新
 $env:Path += ";C:\Program Files\Git\cmd"
