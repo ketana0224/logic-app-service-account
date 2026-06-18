@@ -265,8 +265,9 @@ winget install --id Git.Git --exact --silent --accept-source-agreements --accept
 winget install --id Microsoft.PowerShell --exact --silent --accept-source-agreements --accept-package-agreements
 winget install --id Microsoft.AzureCLI --exact --silent --accept-source-agreements --accept-package-agreements
 
-# Azure にログイン
-az login
+# Azure にログイン（Key Vault がある Azure 側テナント）
+az login --tenant $env:AZURE_TENANT_ID
+az account set --subscription $env:AZURE_SUBSCRIPTION_ID
 
 # 新しいターミナルを開くか、PATH を更新
 $env:Path += ";C:\Program Files\Git\cmd"
