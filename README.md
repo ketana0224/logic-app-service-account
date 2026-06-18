@@ -329,6 +329,9 @@ az account set --subscription $env:AZURE_SUBSCRIPTION_ID
 ./scripts/la-oauth-bootstrap.ps1
 ```
 
+この `az login --tenant $env:AZURE_TENANT_ID` は **Azure サブスクリプション操作用** のログインです。  
+その後に `la-oauth-bootstrap.ps1` がブラウザで求めるサインインは、**M365 テナント側の Service Account (`SERVICE_ACCOUNT_UPN`)** です。
+
 #### パターン B: ローカル PC から実行（Jumpbox なし）
 
 KV を一時開放してからスクリプトを実行し、完了後すぐに閉鎖する。
