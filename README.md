@@ -239,8 +239,11 @@ Jumpbox VM の RDP セッション内から bootstrap を実行します。
 ```powershell
 # RDP セッション内で実行
 Set-Location "C:\logic-app-service-account"
+. ./scripts/load-env.ps1
 pwsh ./scripts/la-oauth-bootstrap.ps1
 ```
+
+`load-env.ps1` を先に実行しないと、`M365_TENANT_ID` / `ENTRA_APP_CLIENT_ID` / `SERVICE_ACCOUNT_UPN` が空のままになり、Microsoft Entra の認可 URL が壊れて 404 になります。
 
 #### パターン B: ローカル PC から実行（Jumpbox なし）
 

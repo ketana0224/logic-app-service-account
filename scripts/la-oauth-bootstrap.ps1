@@ -75,6 +75,38 @@ Write-Host "Client ID: $ClientId"
 Write-Host "Service Account: $ServiceAccountUPN"
 Write-Host ""
 
+$missingParameters = @()
+
+if ([string]::IsNullOrWhiteSpace($TenantId) -or $TenantId -like '<*>' ) {
+    $missingParameters += 'M365_TENANT_ID / -TenantId'
+}
+
+if ([string]::IsNullOrWhiteSpace($ClientId) -or $ClientId -like '<*>' ) {
+    $missingParameters += 'ENTRA_APP_CLIENT_ID / -ClientId'
+}
+
+if ([string]::IsNullOrWhiteSpace($KeyVaultName) -or $KeyVaultName -like '<*>' ) {
+    $missingParameters += 'KEY_VAULT_NAME / -KeyVaultName'
+}
+
+if ([string]::IsNullOrWhiteSpace($ServiceAccountUPN) -or $ServiceAccountUPN -like '<*>' ) {
+    $missingParameters += 'SERVICE_ACCOUNT_UPN / -ServiceAccountUPN'
+}
+
+if ($missingParameters.Count -gt 0) {
+    Write-Error @"
+Missing required bootstrap configuration:
+ - $($missingParameters -join "`n - ")
+
+Before running this script, load scripts/.env.local:
+  . ./scripts/load-env.ps1
+
+Or pass parameters explicitly:
+  pwsh ./scripts/la-oauth-bootstrap.ps1 -TenantId "<tenant>" -ClientId "<client-id>" -KeyVaultName "<kv>" -ServiceAccountUPN "<upn>"
+"@
+    exit 1
+}
+
 # Generate PKCE challenge
 Write-Host "Generating PKCE challenge..." -ForegroundColor Yellow
 $pkce = New-PKCEChallenge
@@ -120,7 +152,7 @@ try {
     # Extract authorization code
     $queryString = $request.Url.Query
     $code = [System.Web.HttpUtility]::ParseQueryString($queryString)["code"]
-    $error = [System.Web.HttpUtility]::ParseQueryString($queryString)["error"]
+    $authError = [System.Web.HttpUtility]::ParseQueryString($queryString)["error"]
     
     # Send response to browser
     if ($code) {
@@ -128,14 +160,14 @@ try {
         $body = [System.Text.Encoding]::UTF8.GetBytes("Authorization successful! You can close this window.")
     } else {
         $response.StatusCode = 400
-        $body = [System.Text.Encoding]::UTF8.GetBytes("Authorization failed: $error")
+        $body = [System.Text.Encoding]::UTF8.GetBytes("Authorization failed: $authError")
     }
     
     $response.OutputStream.Write($body, 0, $body.Length)
     $response.Close()
     
     if (-not $code) {
-        throw "Authorization failed: $error"
+        throw "Authorization failed: $authError"
     }
     
     Write-Host "✓ Authorization code received: $($code.Substring(0, 20))..."
