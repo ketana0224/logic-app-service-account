@@ -14,5 +14,9 @@
   "ENTRA_APP_CLIENT_ID": {
     "type": "String",
     "value": "@appsetting('ENTRA_APP_CLIENT_ID')"
+  },
+  "UAMI_RESOURCE_ID": {
+    "type": "String",
+    "value": "@appsetting('UAMI_RESOURCE_ID')"
   }
 }

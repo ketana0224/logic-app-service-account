@@ -69,6 +69,7 @@
           "uri": "@{concat(variables('kvUri'), '/secrets/m365-system-notify-oid?api-version=7.0')}",
           "authentication": {
             "type": "ManagedServiceIdentity",
+            "identity": "@parameters('UAMI_RESOURCE_ID')",
             "audience": "https://vault.azure.net"
           }
         },
@@ -106,6 +107,7 @@
           "uri": "@{concat(variables('kvUri'), '/secrets/', parameters('REFRESH_TOKEN_SECRET_NAME'), '?api-version=7.0')}",
           "authentication": {
             "type": "ManagedServiceIdentity",
+            "identity": "@parameters('UAMI_RESOURCE_ID')",
             "audience": "https://vault.azure.net"
           }
         },
@@ -140,6 +142,7 @@
           },
           "authentication": {
             "type": "ManagedServiceIdentity",
+            "identity": "@parameters('UAMI_RESOURCE_ID')",
             "audience": "https://vault.azure.net"
           }
         },
@@ -234,6 +237,10 @@
         "defaultValue": ""
       },
       "ENTRA_APP_CLIENT_ID": {
+        "type": "string",
+        "defaultValue": ""
+      },
+      "UAMI_RESOURCE_ID": {
         "type": "string",
         "defaultValue": ""
       }

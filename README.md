@@ -301,7 +301,37 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 git --version
 pwsh --version
 az --version
+```
 
+> [!NOTE]
+> **PATH の永続化について**  
+> `winget install` は PATH をレジストリ（Machine / User スコープ）へ**自動的に永続化**します。  
+> したがって、インストール後に**新しく開いた**ターミナルでは `git` / `pwsh` / `az` が認識されます。  
+>
+> 上記の `$env:Path = ...` は **その時点で既に開いているセッションだけ**を一時的に更新するものです（インストール直後に同じウィンドウで続行したい場合の応急処置）。  
+>
+> **新しい pwsh を開いても `git` が未認識になる場合**（PATH がまだ反映されていない／別ユーザーで開いた等）は、次のいずれかで対処してください。
+>
+> ```powershell
+> # 方法 A: 現在のセッションに Machine + User の PATH を再読込（毎回必要）
+> $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+>
+> # 方法 B: Git のパスを「User PATH」に恒久追加し、以後の新規セッションへ永続反映（1 回だけ実行）
+> $gitCmd = "C:\Program Files\Git\cmd"
+> $userPath = [System.Environment]::GetEnvironmentVariable("Path","User")
+> if ($userPath -notlike "*$gitCmd*") {
+>     [System.Environment]::SetEnvironmentVariable("Path", "$userPath;$gitCmd", "User")
+> }
+> # ※ 方法 B 実行後は、ターミナルを開き直すと反映されます
+> ```
+>
+> Git をフルパスで直接呼ぶこともできます（PATH 反映前の暫定）。
+>
+> ```powershell
+> & "C:\Program Files\Git\cmd\git.exe" --version
+> ```
+
+```powershell
 # リポジトリ clone
 git clone https://github.com/ketana0224/logic-app-service-account.git C:\logic-app-service-account
 

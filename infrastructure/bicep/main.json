@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "18304744589118071823"
+      "templateHash": "10538954398439463382"
     }
   },
   "parameters": {
@@ -725,6 +725,10 @@
             {
               "name": "ENTRA_APP_CLIENT_ID",
               "value": "[parameters('entraAppClientId')]"
+            },
+            {
+              "name": "UAMI_RESOURCE_ID",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('userAssignedIdentityName'))]"
             }
           ]
         }

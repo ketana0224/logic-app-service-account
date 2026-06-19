@@ -667,6 +667,10 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'ENTRA_APP_CLIENT_ID'
           value: entraAppClientId
         }
+        {
+          name: 'UAMI_RESOURCE_ID'
+          value: userAssignedIdentity.id
+        }
       ]
     }
   }
