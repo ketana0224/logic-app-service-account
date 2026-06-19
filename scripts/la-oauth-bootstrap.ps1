@@ -49,6 +49,7 @@ param(
 $redirectUri = "http://localhost:8400/callback"
 $scopes = @(
     "https://graph.microsoft.com/user.read",
+    "https://graph.microsoft.com/user.readbasic.all",
     "https://graph.microsoft.com/chat.readwrite",
     "https://graph.microsoft.com/chatmessage.send",
     "offline_access"
