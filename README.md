@@ -468,16 +468,19 @@ pwsh ./deploy.ps1
 ```powershell
 cd workflows/wf-TeamsNotify
 
-# 特定ユーザーへのテスト送信
-pwsh ./test.ps1 -Target "Adil"
-pwsh ./test.ps1 -Target "Amber"
+# 宛先は完全な UPN で指定する (表示名や姓だけだと Graph で 404 Request_ResourceNotFound になる)
+# 実在ユーザーの UPN は事前に確認しておく:
+#   az ad user list --filter "startswith(displayName,'Adil')" --query "[].{name:displayName, upn:userPrincipalName}" -o table
 
-# 実行結果確認
-pwsh ./check-run.ps1 <runId>
+# 特定ユーザーへのテスト送信 (例: 同じ M365 テナント内の実在ユーザー)
+pwsh ./test.ps1 -Target "AdilE@M365CPI65139919.onmicrosoft.com"
+pwsh ./test.ps1 -Target "AmberR@M365CPI65139919.onmicrosoft.com"
 
-# このテンプレートでは Logic App は PublicNetworkAccess=Disabled
-pwsh ./check-run-arm.ps1 <runId>
+# 実行結果確認 (Jumpbox から実行すること。ローカル PC からだとアクション出力取得が Ip Forbidden で失敗する)
+# このテンプレートでは Logic App は PublicNetworkAccess=Disabled のため ARM 経由版を使う
+pwsh ./check-run-arm.ps1 -RunId <runId>
 ```
+
 
 ## ⚙️ 環境変数セットアップ
 
