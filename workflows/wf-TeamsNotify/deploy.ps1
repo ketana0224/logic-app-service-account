@@ -36,7 +36,8 @@ function Invoke-HostRuntimeRequest {
         [Parameter()]$Body,
         [bool]$AllowConflict = $false,
         [int]$MaxRetries = 12,
-        [int]$DelaySeconds = 10
+        [int]$DelaySeconds = 10,
+        [bool]$RetryNotFound = $false
     )
 
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
@@ -48,6 +49,9 @@ function Invoke-HostRuntimeRequest {
                 return $null
             }
             $isRetryable = ($msg -match 'ServiceUnavailable') -or ($msg -match 'host runtime') -or ($msg -match '429')
+            if ($RetryNotFound -and ($msg -match '404')) {
+                $isRetryable = $true
+            }
             if (-not $isRetryable -or $attempt -eq $MaxRetries) {
                 throw
             }
@@ -80,7 +84,8 @@ Write-Host "✓ Logic App restarted" -ForegroundColor Green
 Write-Host "Fetching callback URL..." -ForegroundColor Yellow
 $callbackUri = "https://management.azure.com$resourceId/hostruntime/runtime/webhooks/workflow/api/management/workflows/$workflowName/triggers/manual/listCallbackUrl?api-version=$apiVersion"
 $callbackResponse = Invoke-HostRuntimeRequest -Uri $callbackUri -Method Post `
-    -Headers @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
+    -Headers @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" } `
+    -RetryNotFound $true
 
 $callbackUrl = $callbackResponse.value
 $callbackUrl | Out-File "$PSScriptRoot/callback-url.txt" -Encoding utf8
