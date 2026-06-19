@@ -66,6 +66,18 @@ $fileUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/w
 $dirUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/?api-version=$apiVersion"
 $body = Get-Content $workflowJson -Raw
 
+# host.json (Logic Apps Workflows 拡張バンドル) を配置
+# 誤ったバンドル (Microsoft.Azure.Functions.ExtensionBundle) だとワークフロー拡張が
+# ロードされず runtime/webhooks/workflow が 404 になるため、毎回正しい host.json を上書きする
+$hostJson = "$PSScriptRoot/../host.json"
+$hostUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/host.json?api-version=$apiVersion"
+$hostHeaders = $headers.Clone()
+$hostHeaders["If-Match"] = "*"
+
+Write-Host "Uploading host.json via VFS..." -ForegroundColor Yellow
+Invoke-HostRuntimeRequest -Uri $hostUri -Method Put -Headers $hostHeaders -Body (Get-Content $hostJson -Raw) | Out-Null
+Write-Host "✓ host.json deployed" -ForegroundColor Green
+
 Write-Host "Ensuring workflow directory exists..." -ForegroundColor Yellow
 Invoke-HostRuntimeRequest -Uri $dirUri -Method Put -Headers $headers -Body '' -AllowConflict $true | Out-Null
 
