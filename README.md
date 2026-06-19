@@ -400,6 +400,11 @@ az account set --subscription $env:AZURE_SUBSCRIPTION_ID
 この `az login --tenant $env:AZURE_TENANT_ID` は **Azure サブスクリプション操作用** のログインです。  
 その後に `la-oauth-bootstrap.ps1` がブラウザで求めるサインインは、**M365 テナント側の Service Account (`SERVICE_ACCOUNT_UPN`)** です。
 
+> [!IMPORTANT]
+> ブラウザのサインイン画面では**必ず `SERVICE_ACCOUNT_UPN`（例: `system-notify@...`）を選択**してください。  
+> 既に別アカウント（admin など）でサインイン済みのセッションが残っていると、そのまま別アカウントで進んでしまい、誤ったユーザーの `refresh_token` が保存されます。  
+> 「別のアカウントを使用する」から Service Account を選び、完了ログの `User Principal Name:` が `SERVICE_ACCOUNT_UPN` と一致していることを必ず確認してください。一致しない場合は最初からやり直します。
+
 #### パターン B: ローカル PC から実行（Jumpbox なし）
 
 KV を一時開放してからスクリプトを実行し、完了後すぐに閉鎖する。
@@ -617,6 +622,7 @@ TAG_COST_CENTER           # コスト分析用
 | EVL-04d ワークフロー | ✅ | 2026-06-12 |
 | Public Disabled 後の PE テスト | ✅ | 2026-06-12 03:46 UTC |
 | Token Health Check (6h rotation) | ✅ | 2026-06-12 |
+| Teams 通知 E2E 再検証 (User.ReadBasic.All 追加後) | ✅ | 2026-06-19 |
 
 詳細は [evaluation/EVL-04-test-results.md](evaluation/EVL-04-test-results.md) を参照。
 
@@ -638,7 +644,7 @@ TAG_COST_CENTER           # コスト分析用
 | アカウント種別 | **専用ユーザーアカウント** (Shared Mailbox ❌) |
 | パスワード | **恒久パスワード** (TAP ❌) |
 | ライセンス | **Microsoft 365 (Teams 含む)** |
-| Delegated 権限 | `User.Read` / `Chat.ReadWrite` / `ChatMessage.Send` / `offline_access` |
+| Delegated 権限 | `User.Read` / `User.ReadBasic.All` / `Chat.ReadWrite` / `ChatMessage.Send` / `offline_access` |
 
 ## 🔄 関連プロジェクト
 
@@ -657,7 +663,7 @@ TAG_COST_CENTER           # コスト分析用
 
 ---
 
-**最終更新**: 2026-06-17  
+**最終更新**: 2026-06-19  
 **著者**: Logic App Service Account 実装チーム  
 **ステータス**: ✅ 本番検証完了 (EVL-04d / EVL-99)
 
