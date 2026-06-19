@@ -61,6 +61,12 @@ param logAnalyticsName string = 'log-sendmsg'
 @description('Application Insights 名')
 param appInsightsName string = 'appi-sendmsg'
 
+@description('M365 (サービスアカウント) テナント ID。ワークフローの OAuth トークン交換に使用')
+param m365TenantId string = ''
+
+@description('Entra アプリ (OAuth クライアント) のクライアント ID。ワークフローのトークン更新に使用')
+param entraAppClientId string = ''
+
 @description('VNet アドレス空間')
 param vnetAddressPrefix string = '10.0.0.0/16'
 
@@ -652,6 +658,14 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'REFRESH_TOKEN_SECRET_NAME'
           value: 'm365-system-notify-refresh-token'
+        }
+        {
+          name: 'M365_TENANT_ID'
+          value: m365TenantId
+        }
+        {
+          name: 'ENTRA_APP_CLIENT_ID'
+          value: entraAppClientId
         }
       ]
     }

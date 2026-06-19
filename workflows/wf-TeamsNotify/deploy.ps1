@@ -78,6 +78,17 @@ Write-Host "Uploading host.json via VFS..." -ForegroundColor Yellow
 Invoke-HostRuntimeRequest -Uri $hostUri -Method Put -Headers $hostHeaders -Body (Get-Content $hostJson -Raw) | Out-Null
 Write-Host "✓ host.json deployed" -ForegroundColor Green
 
+# parameters.json (ワークフローパラメータ -> appsetting マッピング) を配置
+# Logic App Standard は parameters('X') をルートの parameters.json で解決するため必須
+$paramsJson = "$PSScriptRoot/../parameters.json"
+$paramsUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/parameters.json?api-version=$apiVersion"
+$paramsHeaders = $headers.Clone()
+$paramsHeaders["If-Match"] = "*"
+
+Write-Host "Uploading parameters.json via VFS..." -ForegroundColor Yellow
+Invoke-HostRuntimeRequest -Uri $paramsUri -Method Put -Headers $paramsHeaders -Body (Get-Content $paramsJson -Raw) | Out-Null
+Write-Host "✓ parameters.json deployed" -ForegroundColor Green
+
 Write-Host "Ensuring workflow directory exists..." -ForegroundColor Yellow
 Invoke-HostRuntimeRequest -Uri $dirUri -Method Put -Headers $headers -Body '' -AllowConflict $true | Out-Null
 

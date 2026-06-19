@@ -45,6 +45,11 @@ param firewallPolicyName = 'afwp-sendmsg'
 param logAnalyticsName = 'log-sendmsg'
 param appInsightsName = 'appi-sendmsg'
 
+// ワークフロー OAuth (M365 サービスアカウント / Entra アプリ)
+// 値は環境ごとに設定してください (scripts/.env.local の M365_TENANT_ID / ENTRA_APP_CLIENT_ID)
+param m365TenantId = '655bd66a-5001-4cb3-9aad-ce54a27d5d95'
+param entraAppClientId = '6c8fb6bd-cc96-4a2e-86b5-450b3a0dc196'
+
 // タグ
 param tags = {
   workload: 'logic-app-service-account'

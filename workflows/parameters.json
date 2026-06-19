@@ -1,0 +1,18 @@
+{
+  "KEYVAULT_NAME": {
+    "type": "String",
+    "value": "@appsetting('KEYVAULT_NAME')"
+  },
+  "REFRESH_TOKEN_SECRET_NAME": {
+    "type": "String",
+    "value": "@appsetting('REFRESH_TOKEN_SECRET_NAME')"
+  },
+  "M365_TENANT_ID": {
+    "type": "String",
+    "value": "@appsetting('M365_TENANT_ID')"
+  },
+  "ENTRA_APP_CLIENT_ID": {
+    "type": "String",
+    "value": "@appsetting('ENTRA_APP_CLIENT_ID')"
+  }
+}
