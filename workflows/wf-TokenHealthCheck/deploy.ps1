@@ -77,7 +77,9 @@ Write-Host "Ensuring workflow directory exists..." -ForegroundColor Yellow
 Invoke-HostRuntimeRequest -Uri $dirUri -Method Put -Headers $headers -Body '' -AllowConflict $true | Out-Null
 
 Write-Host "Uploading workflow.json via VFS..." -ForegroundColor Yellow
-Invoke-HostRuntimeRequest -Uri $fileUri -Method Put -Headers $headers -Body $body | Out-Null
+$workflowHeaders = $headers.Clone()
+$workflowHeaders["If-Match"] = "*"
+Invoke-HostRuntimeRequest -Uri $fileUri -Method Put -Headers $workflowHeaders -Body $body | Out-Null
 
 Write-Host "✓ workflow.json deployed" -ForegroundColor Green
 

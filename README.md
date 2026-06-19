@@ -422,6 +422,16 @@ pwsh ./deploy.ps1
 
 ### ステップ 6: テスト実行
 
+> [!IMPORTANT]
+> **このステップは Jumpbox (RDP) から実行してください。**  
+> `test.ps1` は Logic App のトリガー (callback URL) に**データプレーン経由**で直接リクエストを送ります。  
+> Logic App は `publicNetworkAccess=Disabled` のため、このエンドポイントは **VNet 内 (Jumpbox) からのみ到達可能**です。ローカル PC からは届きません。
+>
+> | ステップ | 経路 | 実行場所 |
+> |---------|------|---------|
+> | ステップ 5: デプロイ | ARM コントロールプレーン | **ローカル PC 推奨**（MFA の都合） |
+> | ステップ 6: テスト | データプレーン (トリガー実行) | **Jumpbox / RDP** |
+
 ```powershell
 cd workflows/wf-TeamsNotify
 
