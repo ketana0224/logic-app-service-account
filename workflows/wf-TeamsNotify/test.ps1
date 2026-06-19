@@ -17,7 +17,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Target,
 
-    [string]$Message = "<p>This is a test notification from Logic App EVL-04d.</p>",
+    [string]$Message = "<p>This is a test notification from Logic App TeamsNotify workflow.</p>",
     [string]$Subject = "Teams Notification (Test)"
 )
 
