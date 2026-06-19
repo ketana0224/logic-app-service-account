@@ -171,6 +171,7 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
   TAP (Temporary Access Pass) は使用しない
 
 3. Entra App Registration を作成
+  必ず **Microsoft 365 テナント (`M365_TENANT_ID`)** にサインインした状態で作成する (Azure サブスクリプションの `AZURE_TENANT_ID` とは別テナント。Service Account・宛先ユーザーと同じ M365 テナントに登録しないと OAuth・Graph 呼び出しが失敗する)
   Azure Portal > Entra ID > アプリの登録 > 新規登録
   名前: `Logic App Service Account Auth`
   サポートされているアカウントの種類: `シングル テナントのみ`
@@ -188,6 +189,7 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
   `アクセス許可の追加` > `Microsoft Graph` > `委任されたアクセス許可`
   以下を追加
   `User.Read`
+  `User.ReadBasic.All` (宛先ユーザーの OID を Graph で解決するために必須。これが無いと `Lookup_Recipient_OID` で 403 Authorization_RequestDenied になる)
   `Chat.ReadWrite`
   `ChatMessage.Send`
   `offline_access`
@@ -195,6 +197,7 @@ Step 4 の OAuth bootstrap 前に、Microsoft 365 テナント側で Service Acc
 6. Admin consent を付与
   `API のアクセス許可` 画面で `Contoso に管理者の同意を与えます` をクリック
   `状態` 列が同意済みになったことを確認
+  既にデプロイ済みで後から権限 (例: `User.ReadBasic.All`) を追加した場合は、同意付与後に **Step 4 の OAuth bootstrap を再実行** して新しいスコープを含む refresh_token を取得し直すこと (既存トークンには古いスコープしか含まれないため 403 が解消されない)
 
 7. `概要` 画面の `アプリケーション (クライアント) ID` を `scripts/.env.local` に設定
 
