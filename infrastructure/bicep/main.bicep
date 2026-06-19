@@ -9,9 +9,10 @@
 //   - Log Analytics + Application Insights
 //   - Key Vault (publicNetworkAccess=Disabled, RBAC 認可)
 //   - Storage Account (Logic App host state)
-//   - App Service Plan (WS1) + Logic App Standard (SAMI 有効)
+//   - User-Assigned Managed Identity (id-sendmsg-la: ホストストレージ MI 認証)
+//   - App Service Plan (WS1) + Logic App Standard (UAMI 有効)
 //   - 6 Private Endpoints + 6 Private DNS Zones (+ vnet link)
-//   - RBAC: Logic App SAMI -> Key Vault Secrets Officer + Storage data-plane roles
+//   - RBAC: Logic App UAMI -> Key Vault Secrets Officer + Storage data-plane roles
 //
 // scope: resourceGroup
 // =============================================================================
@@ -30,6 +31,9 @@ param namePrefix string = 'sendmsg'
 
 @description('Logic App Standard のサイト名')
 param logicAppName string = 'la-sendmsg-m365-connector'
+
+@description('Logic App ホストストレージ認証用ユーザー割り当てマネージドID 名')
+param userAssignedIdentityName string = 'id-sendmsg-la'
 
 @description('Key Vault 名 (グローバル一意)')
 param keyVaultName string = 'kv-sendmsg-001'
@@ -178,6 +182,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
         name: subnetJumpboxName
         properties: {
           addressPrefix: subnetJumpboxPrefix
+          // Jumpbox の egress も Azure Firewall 経由に強制 (全 outbound を Firewall 制御)
+          routeTable: {
+            id: routeTable.id
+          }
         }
       }
     ]
@@ -332,6 +340,98 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
           }
         ]
       }
+      {
+        ruleCollectionType: 'FirewallPolicyFilterRuleCollection'
+        name: 'app-appinsights'
+        priority: 130
+        action: {
+          type: 'Allow'
+        }
+        rules: [
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-appinsights-telemetry'
+            sourceAddresses: [
+              subnetLogicAppPrefix
+            ]
+            protocols: [
+              {
+                protocolType: 'Https'
+                port: 443
+              }
+            ]
+            targetFqdns: [
+              // Application Insights / Azure Monitor 取り込みエンドポイント
+              '*.in.applicationinsights.azure.com'
+              'dc.applicationinsights.azure.com'
+              'dc.services.visualstudio.com'
+              '*.livediagnostics.monitor.azure.com'
+              '*.monitor.azure.com'
+            ]
+          }
+        ]
+      }
+      {
+        ruleCollectionType: 'FirewallPolicyFilterRuleCollection'
+        name: 'app-jumpbox-bootstrap'
+        priority: 140
+        action: {
+          type: 'Allow'
+        }
+        rules: [
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-jumpbox-github'
+            sourceAddresses: [
+              subnetJumpboxPrefix
+            ]
+            protocols: [
+              {
+                protocolType: 'Https'
+                port: 443
+              }
+            ]
+            targetFqdns: [
+              // git clone / GitHub
+              'github.com'
+              '*.github.com'
+              'codeload.github.com'
+              '*.githubusercontent.com'
+              'github.githubassets.com'
+            ]
+          }
+          {
+            ruleType: 'ApplicationRule'
+            name: 'allow-jumpbox-winget-az'
+            sourceAddresses: [
+              subnetJumpboxPrefix
+            ]
+            protocols: [
+              {
+                protocolType: 'Https'
+                port: 443
+              }
+            ]
+            targetFqdns: [
+              // winget / Microsoft Store delivery
+              'cdn.winget.microsoft.com'
+              '*.cdn.winget.microsoft.com'
+              'winget.azureedge.net'
+              '*.delivery.mp.microsoft.com'
+              '*.do.dsp.mp.microsoft.com'
+              'storeedgefd.dsx.mp.microsoft.com'
+              'store.microsoft.com'
+              // Azure CLI / Microsoft downloads
+              'aka.ms'
+              '*.microsoft.com'
+              '*.azureedge.net'
+              'azcliprod.azureedge.net'
+              // PowerShell / Git installer payloads
+              'objects.githubusercontent.com'
+            ]
+          }
+        ]
+      }
     ]
   }
 }
@@ -447,8 +547,20 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+
 // -----------------------------------------------------------------------------
-// App Service Plan (WS1) + Logic App Standard (SAMI)
+// User-Assigned Managed Identity (Logic App ホストストレージ認証用)
+//   allowSharedKeyAccess=false 環境では UAMI が必須 (SAMI では初期化失敗)
+// -----------------------------------------------------------------------------
+
+resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: userAssignedIdentityName
+  location: location
+  tags: tags
+}
+
+// -----------------------------------------------------------------------------
+// App Service Plan (WS1) + Logic App Standard (UAMI)
 // -----------------------------------------------------------------------------
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -473,7 +585,10 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
   tags: tags
   kind: 'functionapp,workflowapp'
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedIdentity.id}': {}
+    }
   }
   properties: {
     serverFarmId: appServicePlan.id
@@ -495,12 +610,20 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
           value: 'dotnet'
         }
         {
-          name: 'APP_KIND'
-          value: 'workflowApp'
+          name: 'AzureWebJobsStorage__accountName'
+          value: storageAccount.name
         }
         {
           name: 'AzureWebJobsStorage__credential'
-          value: 'managedidentity'
+          value: 'managedIdentity'
+        }
+        {
+          name: 'AzureWebJobsStorage__clientId'
+          value: userAssignedIdentity.properties.clientId
+        }
+        {
+          name: 'AzureWebJobsStorage__managedIdentityResourceId'
+          value: userAssignedIdentity.id
         }
         {
           name: 'AzureWebJobsStorage__blobServiceUri'
@@ -515,20 +638,12 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
           value: 'https://${storageAccount.name}.table.${environment().suffixes.storage}'
         }
         {
-          name: 'AzureWebJobsStorage__fileServiceUri'
-          value: 'https://${storageAccount.name}.file.${environment().suffixes.storage}'
-        }
-        {
-          name: 'WEBSITE_SKIP_CONTENTSHARE_VALIDATION'
-          value: '1'
+          name: 'AzureWebJobsSecretStorageType'
+          value: 'Files'
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsights.properties.ConnectionString
-        }
-        {
-          name: 'WEBSITE_VNET_ROUTE_ALL'
-          value: '1'
         }
         {
           name: 'KEYVAULT_NAME'
@@ -549,60 +664,60 @@ resource logicApp 'Microsoft.Web/sites@2023-12-01' = {
 
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: keyVault
-  name: guid(keyVault.id, logicApp.id, roleKeyVaultSecretsOfficer)
+  name: guid(keyVault.id, userAssignedIdentity.id, roleKeyVaultSecretsOfficer)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleKeyVaultSecretsOfficer)
-    principalId: logicApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 resource stRoleAccountContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(storageAccount.id, logicApp.id, roleStorageAccountContributor)
+  name: guid(storageAccount.id, userAssignedIdentity.id, roleStorageAccountContributor)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageAccountContributor)
-    principalId: logicApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 resource stRoleBlobDataOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(storageAccount.id, logicApp.id, roleStorageBlobDataOwner)
+  name: guid(storageAccount.id, userAssignedIdentity.id, roleStorageBlobDataOwner)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageBlobDataOwner)
-    principalId: logicApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 resource stRoleQueueDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(storageAccount.id, logicApp.id, roleStorageQueueDataContributor)
+  name: guid(storageAccount.id, userAssignedIdentity.id, roleStorageQueueDataContributor)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageQueueDataContributor)
-    principalId: logicApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 resource stRoleTableDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(storageAccount.id, logicApp.id, roleStorageTableDataContributor)
+  name: guid(storageAccount.id, userAssignedIdentity.id, roleStorageTableDataContributor)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageTableDataContributor)
-    principalId: logicApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 resource stRoleFileDataSmbShareContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(storageAccount.id, logicApp.id, roleStorageFileDataSmbShareContributor)
+  name: guid(storageAccount.id, userAssignedIdentity.id, roleStorageFileDataSmbShareContributor)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageFileDataSmbShareContributor)
-    principalId: logicApp.identity.principalId
+    principalId: userAssignedIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -784,7 +899,9 @@ resource peStorageDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2
 // -----------------------------------------------------------------------------
 
 output logicAppName string = logicApp.name
-output logicAppPrincipalId string = logicApp.identity.principalId
+output userAssignedIdentityName string = userAssignedIdentity.name
+output userAssignedIdentityPrincipalId string = userAssignedIdentity.properties.principalId
+output userAssignedIdentityClientId string = userAssignedIdentity.properties.clientId
 output keyVaultName string = keyVault.name
 output storageAccountName string = storageAccount.name
 output vnetName string = vnet.name

@@ -305,7 +305,7 @@ Write-Host "Username: azureuser"
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "1. Connect via RDP: mstsc /v:$publicIp"
-Write-Host "2. Inside VM, run test.ps1 from workflows/EVL-04d-TeamsNotify/"
+Write-Host "2. Inside VM, run test.ps1 from workflows/wf-TeamsNotify/"
 Write-Host "3. For cost optimization, enable Auto-Shutdown: 21:00 JST (12:00 UTC)"
 Write-Host ""
 
@@ -359,3 +359,4 @@ $vmInfo = @{
 
 $vmInfo | ConvertTo-Json | Out-File "jumpbox-info.json"
 Write-Host "VM info saved to jumpbox-info.json"
+

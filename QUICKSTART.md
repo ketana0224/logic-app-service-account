@@ -269,13 +269,13 @@ az keyvault update -n $kvName -g $env:RESOURCE_GROUP_NAME `
 EVL-04d (Teams 通知送信):
 
 ```powershell
-cd workflows/EVL-04d-TeamsNotify
+cd workflows/wf-TeamsNotify
 pwsh ./deploy.ps1
 ```
 
 出力:
 ```
-✓ Workflow deployed: EVL-04d-TeamsNotify
+✓ Workflow deployed: wf-TeamsNotify
 Callback URL: https://<LOGIC_APP_NAME>.azurewebsites.net/api/Team...
 callback-url.txt に保存済み
 ```
@@ -283,7 +283,7 @@ callback-url.txt に保存済み
 EVL-99 (トークンヘルスチェック):
 
 ```powershell
-cd ../EVL-99-TokenHealthCheck
+cd ../wf-TokenHealthCheck
 pwsh ./deploy.ps1
 ```
 
@@ -292,7 +292,7 @@ pwsh ./deploy.ps1
 テストメッセージを送信:
 
 ```powershell
-cd workflows/EVL-04d-TeamsNotify
+cd workflows/wf-TeamsNotify
 
 # 特定ユーザーへ
 pwsh ./test.ps1 -Target "Adil"
@@ -390,7 +390,7 @@ pwsh ./check-run.ps1 -RunId "<runId>"
 az logicapp workflow show-run \
     -g $env:RESOURCE_GROUP_NAME \
     -n <LOGIC_APP_NAME> \
-    -r EVL-04d-TeamsNotify \
+    -r wf-TeamsNotify \
     --run-name <runId>
 ```
 
@@ -435,3 +435,5 @@ az logicapp workflow show-run \
 ---
 
 **ドキュメント**: [README.md](../README.md) / [docs/](../docs/)
+
+

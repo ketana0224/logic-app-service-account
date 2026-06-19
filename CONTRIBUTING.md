@@ -231,7 +231,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 pwsh ./scripts/la-oauth-bootstrap.ps1
 
 # 2. Deploy workflows
-cd workflows/EVL-04d-TeamsNotify
+cd workflows/wf-TeamsNotify
 pwsh ./deploy.ps1
 
 # 3. Test
@@ -292,3 +292,4 @@ PR を submit することで、MIT License での利用に同意したものと
 ---
 
 ご協力ありがとうございます！
+

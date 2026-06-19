@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-  EVL-04d-TeamsNotify のテスト送信
+  wf-TeamsNotify のテスト送信
 
 .PARAMETER Target
   送信先ユーザーの UPN（例: AdilE@contoso.onmicrosoft.com）
@@ -38,7 +38,7 @@ if ($Target -notmatch "@") {
     $recipient = $Target
 }
 
-Write-Host "=== Test: EVL-04d-TeamsNotify ===" -ForegroundColor Cyan
+Write-Host "=== Test: wf-TeamsNotify ===" -ForegroundColor Cyan
 Write-Host "Target   : $recipient"
 Write-Host "Subject  : $Subject"
 
@@ -69,7 +69,7 @@ if ($runId) {
     . "$PSScriptRoot/../../scripts/load-env.ps1"
     $resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/$env:LOGIC_APP_NAME"
     $token = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv)
-    $statusUri = "https://management.azure.com$resourceId/hostruntime/runtime/webhooks/workflow/api/management/workflows/EVL-04d-TeamsNotify/runs/$($runId)?api-version=2023-12-01"
+    $statusUri = "https://management.azure.com$resourceId/hostruntime/runtime/webhooks/workflow/api/management/workflows/wf-TeamsNotify/runs/$($runId)?api-version=2023-12-01"
 
     $elapsed = 0
     do {
@@ -93,3 +93,4 @@ if ($runId) {
     Write-Host "✓ Request accepted (202). Run ID not returned in header." -ForegroundColor Green
     Write-Host "Use check-run-arm.ps1 to inspect the latest run."
 }
+

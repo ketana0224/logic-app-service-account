@@ -289,7 +289,7 @@ Write-Host ""
 Write-Host "Next steps:"
 Write-Host "1. Close and re-open Key Vault to complete security lockdown"
 Write-Host "2. Deploy Logic App workflows (EVL-04d, EVL-99)"
-Write-Host "3. Run test.ps1 in workflows/EVL-04d-TeamsNotify/"
+Write-Host "3. Run test.ps1 in workflows/wf-TeamsNotify/"
 Write-Host ""
 
 # Save results to file for reference
@@ -305,3 +305,4 @@ $results = @{
 
 $results | ConvertTo-Json | Out-File "bootstrap-results.json"
 Write-Host "Results saved to bootstrap-results.json"
+

@@ -12,7 +12,7 @@
 using './main.bicep'
 
 // デプロイ先リージョン (Linux WS1 不可、Windows のみ。westus2 / japaneast / eastus2 等)
-param location = 'westus2'
+param location = 'eastus2'
 
 // 環境識別子 / リソース名プレフィックス
 param namePrefix = 'sendmsg'

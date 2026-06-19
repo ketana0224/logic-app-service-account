@@ -18,7 +18,7 @@ $token = (az account get-access-token --resource https://management.azure.com --
 if (-not $token) { Write-Error "az login が必要です"; exit 1 }
 
 $resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP_NAME/providers/Microsoft.Web/sites/$env:LOGIC_APP_NAME"
-$uri = "https://management.azure.com$resourceId/hostruntime/runtime/webhooks/workflow/api/management/workflows/EVL-04d-TeamsNotify/runs/$($RunId)?api-version=2023-12-01"
+$uri = "https://management.azure.com$resourceId/hostruntime/runtime/webhooks/workflow/api/management/workflows/wf-TeamsNotify/runs/$($RunId)?api-version=2023-12-01"
 
 Write-Host "Fetching run (ARM): $RunId" -ForegroundColor Cyan
 
@@ -33,3 +33,4 @@ $response.properties.actions.PSObject.Properties | ForEach-Object {
     $result = $_.Value.status
     Write-Host "  - $name`: $result"
 }
+

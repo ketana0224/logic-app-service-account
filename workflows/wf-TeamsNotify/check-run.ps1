@@ -15,7 +15,7 @@ param(
 . "$PSScriptRoot/../../scripts/load-env.ps1"
 
 $logicAppUrl = "https://$env:LOGIC_APP_NAME.azurewebsites.net"
-$uri = "$logicAppUrl/runtime/webhooks/workflow/api/management/workflows/EVL-04d-TeamsNotify/runs/$RunId"
+$uri = "$logicAppUrl/runtime/webhooks/workflow/api/management/workflows/wf-TeamsNotify/runs/$RunId"
 
 Write-Host "Fetching run: $RunId" -ForegroundColor Cyan
 
@@ -29,3 +29,4 @@ $response.properties.actions.PSObject.Properties | ForEach-Object {
     $result = $_.Value.status
     Write-Host "  - $name`: $result"
 }
+

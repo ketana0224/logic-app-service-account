@@ -87,7 +87,7 @@
         "type": "Compose",
         "inputs": {
           "evaluation": "EVL-99",
-          "type": "TokenHealthCheck",
+          "type": "wf-TokenHealthCheck",
           "status": "completed",
           "timestamp": "@{utcNow()}",
           "tokenRefreshed": true,
@@ -120,3 +120,4 @@
   },
   "kind": "Stateful"
 }
+

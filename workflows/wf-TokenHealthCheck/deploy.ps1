@@ -1,8 +1,10 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-  EVL-99-TokenHealthCheck ワークフローを Logic App にデプロイする
+  wf-TokenHealthCheck ワークフローを Logic App にデプロイする
 #>
+
+$ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path "$PSScriptRoot/../..").Path
 Push-Location $repoRoot
@@ -12,7 +14,7 @@ try {
     Pop-Location
 }
 
-$workflowName = "EVL-99-TokenHealthCheck"
+$workflowName = "wf-TokenHealthCheck"
 $workflowJson = "$PSScriptRoot/workflow.json"
 
 Write-Host "=== Deploy: $workflowName ===" -ForegroundColor Cyan
@@ -26,11 +28,44 @@ $resourceId = "/subscriptions/$env:AZURE_SUBSCRIPTION_ID/resourceGroups/$env:RES
 $apiVersion = "2023-12-01"
 $headers   = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
 
+function Invoke-HostRuntimeRequest {
+  param(
+    [Parameter(Mandatory = $true)][string]$Uri,
+    [Parameter(Mandatory = $true)][string]$Method,
+    [Parameter()][hashtable]$Headers,
+    [Parameter()]$Body,
+    [bool]$AllowConflict = $false,
+    [int]$MaxRetries = 12,
+    [int]$DelaySeconds = 10
+  )
+
+  for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+    try {
+      return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $Headers -Body $Body
+    } catch {
+      $msg = $_.Exception.Message
+      if ($AllowConflict -and ($msg -match '409') -and ($msg -match 'Conflict')) {
+        return $null
+      }
+      $isRetryable = ($msg -match 'ServiceUnavailable') -or ($msg -match 'host runtime') -or ($msg -match '429')
+      if (-not $isRetryable -or $attempt -eq $MaxRetries) {
+        throw
+      }
+      Write-Host "Host runtime not ready (attempt $attempt/$MaxRetries). Retrying in ${DelaySeconds}s..." -ForegroundColor Yellow
+      Start-Sleep -Seconds $DelaySeconds
+    }
+  }
+}
+
 $fileUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/workflow.json?api-version=$apiVersion"
+$dirUri = "https://management.azure.com$resourceId/hostruntime/admin/vfs/site/wwwroot/$workflowName/?api-version=$apiVersion"
 $body = Get-Content $workflowJson -Raw
 
+Write-Host "Ensuring workflow directory exists..." -ForegroundColor Yellow
+Invoke-HostRuntimeRequest -Uri $dirUri -Method Put -Headers $headers -Body '' -AllowConflict $true | Out-Null
+
 Write-Host "Uploading workflow.json via VFS..." -ForegroundColor Yellow
-Invoke-RestMethod -Uri $fileUri -Method Put -Headers $headers -Body $body | Out-Null
+Invoke-HostRuntimeRequest -Uri $fileUri -Method Put -Headers $headers -Body $body | Out-Null
 
 Write-Host "✓ workflow.json deployed" -ForegroundColor Green
 
@@ -42,6 +77,8 @@ Write-Host "✓ Logic App restarted" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "=== Deploy Complete ===" -ForegroundColor Green
-Write-Host "EVL-99 will run automatically every 6 hours."
+Write-Host "wf-TokenHealthCheck will run automatically every 6 hours."
 Write-Host "To trigger manually:"
 Write-Host "  az logicapp workflow run-trigger -g $env:RESOURCE_GROUP_NAME -n $env:LOGIC_APP_NAME -r $workflowName"
+
+

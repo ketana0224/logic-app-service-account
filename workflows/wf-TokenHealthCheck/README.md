@@ -1,4 +1,4 @@
-# EVL-99-TokenHealthCheck Workflow
+# wf-TokenHealthCheck Workflow
 
 6 時間ごとに refresh_token を自動 rotation し、90 日 sliding window を永遠にリセットするワークフロー。
 
@@ -70,7 +70,7 @@ Key Vault から最新 refresh_token を取得。
 ```json
 {
   "evaluation": "EVL-99",
-  "type": "TokenHealthCheck",
+  "type": "wf-TokenHealthCheck",
   "status": "completed",
   "timestamp": "@{utcNow()}",
   "tokenRefreshed": true,
@@ -145,7 +145,7 @@ az logicapp workflow show \
 az logicapp workflow list-runs \
     -g rg-your-group \
   -n la-sendmsg-m365-connector \
-    -r EVL-99-TokenHealthCheck \
+    -r wf-TokenHealthCheck \
     --top 10 -o table
 ```
 
@@ -167,7 +167,7 @@ traces
 az logicapp workflow run-trigger \
     -g rg-your-group \
   -n la-sendmsg-m365-connector \
-    -r EVL-99-TokenHealthCheck
+    -r wf-TokenHealthCheck
 ```
 
 ## コスト影響
@@ -179,7 +179,7 @@ az logicapp workflow run-trigger \
 
 ## 関連ドキュメント
 
-- [EVL-04d-TeamsNotify](../EVL-04d-TeamsNotify/README.md) — 通知送信ワークフロー
+- [wf-TeamsNotify](../wf-TeamsNotify/README.md) — 通知送信ワークフロー
 - [docs/03-OAuth-Flow.md](../../docs/03-OAuth-Flow.md) — OAuth refresh_token rotation の仕組み
 - [docs/04-Troubleshooting.md](../../docs/04-Troubleshooting.md) — トラブルシューティング
 
@@ -187,3 +187,5 @@ az logicapp workflow run-trigger \
 
 **最終更新**: 2026-06-12  
 **ステータス**: ✅ 本番稼働中
+
+
