@@ -389,6 +389,27 @@ az keyvault update -n $env:KEY_VAULT_NAME -g $env:RESOURCE_GROUP_NAME `
 `deploy.ps1` は ARM（コントロールプレーン）経由でデプロイするため、**ローカル PC から実行可能**です。  
 Logic App の `publicNetworkAccess=Disabled` の影響を受けません。
 
+> [!IMPORTANT]
+> **このステップはローカル PC からの実行を推奨します。**  
+> ワークフローのデプロイ (`workflow.json` / `host.json` の配置) は Azure リソースへの**書き込み操作**です。  
+> 組織の条件付きアクセス (Conditional Access) が有効な環境では、Jumpbox 上の `az login` トークンが MFA 要件を満たさず、書き込み時に次のエラーで失敗することがあります。
+>
+> ```
+> RequestDisallowedByAzure: ... User accounts must be authenticated through MFA to manage your resources.
+> ```
+>
+> ローカル PC は MFA 済みのサインインを使いやすく、かつ `deploy.ps1` は ARM 経由で動作するため、**ローカル PC からの実行が最も確実**です。  
+> どうしても Jumpbox から実行する場合は、MFA を満たすよう明示的に再ログインしてください。
+>
+> ```powershell
+> az logout
+> # ブラウザでサインイン (MFA を完了)
+> az login --tenant $env:AZURE_TENANT_ID --scope https://management.azure.com/.default
+> # ブラウザが使いにくい場合は device code:
+> #   az login --use-device-code --tenant $env:AZURE_TENANT_ID
+> az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+> ```
+
 ```powershell
 # wf-TeamsNotify（Teams 通知送信）
 cd workflows/wf-TeamsNotify
