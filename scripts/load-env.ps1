@@ -11,7 +11,7 @@ Use dot-sourcing to keep variables in the current shell:
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$EnvFile = "scripts/.env.local"
+    [string]$EnvFile = "$PSScriptRoot/.env.local"
 )
 
 if (-not (Test-Path -Path $EnvFile)) {
