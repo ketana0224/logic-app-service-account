@@ -28,9 +28,36 @@ $response = Invoke-RestMethod -Uri $uri -Method Get `
 $status = $response.properties.status
 Write-Host "Status: $status"
 
-$response.properties.actions.PSObject.Properties | ForEach-Object {
-    $name   = $_.Name
-    $result = $_.Value.status
-    Write-Host "  - $name`: $result"
+if ($response.properties.error) {
+    Write-Host "Run error:" -ForegroundColor Red
+    Write-Host "  code   : $($response.properties.error.code)"
+    Write-Host "  message: $($response.properties.error.message)"
+}
+
+# アクション単位の結果を取得（runs/{id}/actions）
+$actionsUri = "https://management.azure.com$resourceId/hostruntime/runtime/webhooks/workflow/api/management/workflows/wf-TeamsNotify/runs/$($RunId)/actions?api-version=2023-12-01"
+$actions = Invoke-RestMethod -Uri $actionsUri -Method Get `
+    -Headers @{ Authorization = "Bearer $token" }
+
+foreach ($a in $actions.value) {
+    $name   = $a.name
+    $st     = $a.properties.status
+    $code   = $a.properties.code
+    Write-Host "  - $name : $st ($code)" -ForegroundColor ($(if ($st -eq 'Failed') { 'Red' } else { 'Gray' }))
+
+    if ($a.properties.error) {
+        Write-Host "      error.code   : $($a.properties.error.code)" -ForegroundColor Red
+        Write-Host "      error.message: $($a.properties.error.message)" -ForegroundColor Red
+    }
+
+    # 失敗アクションの出力（HTTP レスポンス本文など）を取得
+    if ($st -eq 'Failed' -and $a.properties.outputsLink) {
+        try {
+            $out = Invoke-RestMethod -Uri $a.properties.outputsLink.uri -Method Get
+            Write-Host "      outputs: $($out | ConvertTo-Json -Depth 6 -Compress)" -ForegroundColor Yellow
+        } catch {
+            Write-Host "      (outputs 取得不可: $($_.Exception.Message))" -ForegroundColor DarkGray
+        }
+    }
 }
 
